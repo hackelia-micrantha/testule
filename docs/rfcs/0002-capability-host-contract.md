@@ -185,6 +185,8 @@ No trust transition automatically grants mutation authority.
 
 A generation capability may emit a proposed patch, file set, fuzz corpus, fixture, property, or harness. The result should preserve provenance and exact subject revision so stale proposals cannot silently apply to a different source state.
 
+Before any mutation or promotion consumes a proposal, the mutation boundary must compare the current subject identity/revision or equivalent content digest with the revision bound into the `CapabilityResult`. A mismatch must fail closed: the proposal is rejected as stale or explicitly revalidated/regenerated against the new subject and produces new attributable evidence. A caller cannot rebind an old result to newer source state by assertion.
+
 ## Host-neutral provider seam
 
 The first integration seam should remain deliberately small.
@@ -264,6 +266,7 @@ Testule must not become a second governance authority, and Dubnium must not copy
 - Prompt/tool-output injection cannot add capabilities, destinations, credentials, or mutation authority.
 - Generated code is not executed merely because generation succeeded.
 - Required compile/static-analysis/bounded-execution validation fails closed.
+- A proposal cannot be promoted or applied when its bound subject revision no longer matches current source state unless it is explicitly revalidated/regenerated and new evidence is produced.
 - Path traversal, symlink escape, workspace escape, command injection, and output-size/resource exhaustion are explicit negative-test targets.
 - Secret values are not copied into plans, capability payloads, evidence, or diagnostics; references and redaction are used instead.
 - Unsupported mandatory isolation/resource constraints cause rejection before execution.
@@ -296,6 +299,7 @@ Before a live AI or privileged integration, provide deterministic fixtures for:
 - denied filesystem/network/process/secret/device access;
 - unsupported mandatory resource limit;
 - stale subject revision;
+- stale proposal promotion after subject revision changes, including reject and explicit revalidation paths;
 - generated artifact returned as proposal without canonical mutation;
 - malformed/oversized result/evidence;
 - explicit denied/unsupported/timeout/partial status;

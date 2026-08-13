@@ -6,8 +6,11 @@ import (
 	"runtime"
 )
 
-func isolatedGoEnv(artifactRoot string) ([]string, func(), error) {
-	eph := filepath.Join(artifactRoot, "ephemeral")
+func isolatedGoEnv() ([]string, func(), error) {
+	eph, err := os.MkdirTemp("", "testule-go-")
+	if err != nil {
+		return nil, nil, err
+	}
 	paths := []string{
 		filepath.Join(eph, "home"),
 		filepath.Join(eph, "gopath"),
@@ -15,7 +18,8 @@ func isolatedGoEnv(artifactRoot string) ([]string, func(), error) {
 		filepath.Join(eph, "tmp"),
 	}
 	for _, path := range paths {
-		if err := os.MkdirAll(path, 0o750); err != nil {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			_ = os.RemoveAll(eph)
 			return nil, nil, err
 		}
 	}

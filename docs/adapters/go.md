@@ -51,16 +51,19 @@ Testule invokes Go directly with `exec.CommandContext`; no shell is involved. Th
 - fuzz campaign time: greater than zero and at most 30 seconds, with additional timeout headroom;
 - Go test parallelism: `-parallel=1`;
 - captured stdout and stderr: 1 MiB each, with truncation recorded;
+- retained adapter artifacts, including fuzz reproducers: 1 MiB each;
 - child-process pipe shutdown: bounded with a short wait delay;
 - module/toolchain downloads: disabled with `GOPROXY=off`, `GOSUMDB=off`, and `GOTOOLCHAIN=local`;
 - CGO: disabled for this direct adapter;
-- Go caches, temporary files, HOME, and GOPATH: scoped beneath the Testule run artifact directory.
+- Go caches, temporary files, HOME, and GOPATH: scoped to a private OS temporary directory and removed after the adapter operation.
 
 The child environment is constructed explicitly instead of inheriting ambient environment variables and secrets. Tests needing dependencies must therefore be self-contained or use dependency material already made available through an explicit future environment policy, such as vendored dependencies.
 
 ### Isolation boundary
 
-The direct adapter does **not** claim OS-level network, CPU, memory, process-count, or syscall isolation. Test code can still use authority available to the operating-system process, including host network access. When those controls are mandatory, a capability host or TestEnvironment provider must enforce them before invoking the adapter; unsupported mandatory isolation must fail closed rather than being represented as isolated execution.
+The direct adapter does **not** claim OS-level network, CPU, memory, process-count, or syscall isolation. Test code can still use authority available to the operating-system process, including host network access and same-user workspace access. When those controls are mandatory, a capability host or TestEnvironment provider must enforce them before invoking the adapter; unsupported mandatory isolation must fail closed rather than being represented as isolated execution.
+
+The direct adapter also treats its artifact and corpus paths defensively: directory chains are rechecked for symlinks after native execution, result files are created exclusively rather than overwritten, newly observed fuzz corpus entries must be regular non-symlink files, and every recorded artifact digest is revalidated immediately before Evidence is committed. These controls prevent ordinary path-substitution and stale-artifact attacks; they do not turn same-user native test code into a hostile-code sandbox.
 
 ## Evidence
 
@@ -105,11 +108,11 @@ Go fuzz failure
   -> optional explicit promotion
 ```
 
-Go's native fuzz engine performs its own failure minimization before writing the corpus entry. Testule preserves that concrete entry and its digest.
+Go's native fuzz engine performs its own failure minimization before writing the corpus entry. Testule preserves that concrete entry and its digest. Cleanup removes only corpus directories that were created by the current adapter operation; pre-existing empty `testdata/fuzz` directories are preserved.
 
-`replay` verifies the Evidence binding, exact subject revision, artifact path, symlink policy, and digest. It stages the reproducer into the package corpus only for the bounded replay command, then removes the staged copy. Replay emits new Evidence under the explicitly supplied replay environment identity.
+`replay` verifies the Evidence binding, exact subject revision, Evidence/artifact path symlink policy, and digest. It stages the reproducer into the package corpus only for the bounded replay command, then removes the staged copy. Replay emits new Evidence under the explicitly supplied replay environment identity.
 
-`promote` is intentionally separate and mutating. It verifies the same source Evidence/revision/digest and copies the reproducer into `testdata/fuzz/<FuzzTarget>/<name>` as a persistent regression corpus entry. Repeating an identical promotion is idempotent; conflicting content fails closed.
+`promote` is intentionally separate and mutating. It verifies the same source Evidence/revision/digest and copies the reproducer into `testdata/fuzz/<FuzzTarget>/<name>` as a persistent regression corpus entry. Repeating an identical promotion is idempotent; conflicting content fails closed. Promotion uses exclusive creation for a new corpus entry so a path that changes concurrently is not silently overwritten.
 
 For agent/capability hosts, promotion is a consequential workspace mutation and should be separately authorized from fuzz execution or replay. Successful testing Evidence is not authority to mutate canonical source state.
 

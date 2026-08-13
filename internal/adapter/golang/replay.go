@@ -40,7 +40,7 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	env, cleanup, err := isolatedGoEnv(artifactRoot)
+	env, cleanup, err := isolatedGoEnv()
 	if err != nil {
 		return Result{}, err
 	}

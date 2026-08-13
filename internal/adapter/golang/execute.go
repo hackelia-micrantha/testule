@@ -60,7 +60,7 @@ func Run(ctx context.Context, cfg RunConfig) (Result, error) {
 		return persistResult(artifactRoot, record, status, listResult.stdout, listResult.stderr)
 	}
 
-	var before map[string]struct{}
+	var before corpusSnapshot
 	if cfg.Operation == OperationFuzz {
 		before, err = snapshotCorpus(packageDir, cfg.Target)
 		if err != nil {
@@ -188,6 +188,9 @@ func buildEvidence(cfg RunConfig, fingerprint, version string, command []string,
 }
 
 func persistResult(artifactRoot string, record *evidence.Evidence, status string, stdout, stderr []byte) (Result, error) {
+	if err := ensureDirectoryNoSymlink(artifactRoot); err != nil {
+		return Result{}, fmt.Errorf("unsafe artifact root after execution: %w", err)
+	}
 	artifacts := append([]evidence.Artifact(nil), record.Artifacts...)
 	if stdout != nil {
 		artifact, err := writeResultArtifact(artifactRoot, "results/stdout.log", "stdout", "text/plain", stdout)
@@ -220,9 +223,11 @@ func persistResult(artifactRoot string, record *evidence.Evidence, status string
 	encodeErr := encoder.Encode(record)
 	closeErr := f.Close()
 	if encodeErr != nil {
+		_ = os.Remove(evidencePath)
 		return Result{}, encodeErr
 	}
 	if closeErr != nil {
+		_ = os.Remove(evidencePath)
 		return Result{}, closeErr
 	}
 	return Result{Evidence: record, EvidencePath: evidencePath, ArtifactDir: artifactRoot, Status: status}, nil

@@ -50,11 +50,16 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	sourceData, err := os.ReadFile(sourcePath)
+	sourceData, err := readRegularFile(sourcePath)
 	if err != nil {
 		return Result{}, err
 	}
 	replayArtifact, err := writeResultArtifact(artifactRoot, filepath.ToSlash(filepath.Join("reproducers", artifact.Name)), "fuzz-reproducer", artifact.MediaType, sourceData)
+	if err != nil {
+		return Result{}, err
+	}
+
+	before, err := snapshotCorpus(packageDir, source.Execution.Target)
 	if err != nil {
 		return Result{}, err
 	}
@@ -65,7 +70,7 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 	destination := filepath.Join(destinationDir, artifact.Name)
 	created := false
 	if _, err := os.Lstat(destination); os.IsNotExist(err) {
-		if err := os.WriteFile(destination, sourceData, 0o640); err != nil {
+		if err := writeExclusiveRegular(destination, sourceData); err != nil {
 			return Result{}, err
 		}
 		created = true
@@ -80,7 +85,7 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 	if created {
 		defer func() {
 			_ = os.Remove(destination)
-			cleanupEmptyCorpusDirs(packageDir, source.Execution.Target)
+			cleanupCreatedCorpusDirs(packageDir, source.Execution.Target, before)
 		}()
 	}
 
@@ -161,11 +166,11 @@ func Promote(cfg PromoteConfig) (string, error) {
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}
-	data, err := os.ReadFile(sourcePath)
+	data, err := readRegularFile(sourcePath)
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(destination, data, 0o640); err != nil {
+	if err := writeExclusiveRegular(destination, data); err != nil {
 		return "", err
 	}
 	return destination, nil

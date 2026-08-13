@@ -78,7 +78,7 @@ func TestCollectNewReproducerCopiesAndRemovesWorkspaceEntry(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(corpusDir, "abc123"), contents, 0o640); err != nil {
 		t.Fatal(err)
 	}
-	artifacts, err := collectNewReproducers(packageDir, "FuzzCrash", artifactRoot, map[string]struct{}{})
+	artifacts, err := collectNewReproducers(packageDir, "FuzzCrash", artifactRoot, corpusSnapshot{entries: map[string]struct{}{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,6 +87,34 @@ func TestCollectNewReproducerCopiesAndRemovesWorkspaceEntry(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(corpusDir, "abc123")); !os.IsNotExist(err) {
 		t.Fatalf("workspace reproducer was not removed: %v", err)
+	}
+}
+
+func TestCollectNewReproducerPreservesPreexistingCorpusDirectories(t *testing.T) {
+	packageDir := filepath.Join(t.TempDir(), "sample")
+	corpusDir := filepath.Join(packageDir, "testdata", "fuzz", "FuzzCrash")
+	if err := os.MkdirAll(corpusDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	before, err := snapshotCorpus(packageDir, "FuzzCrash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(corpusDir, "newcase"), []byte("go test fuzz v1\n[]byte(\"boom\")\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	artifactRoot := filepath.Join(filepath.Dir(packageDir), "artifacts")
+	if err := os.Mkdir(artifactRoot, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collectNewReproducers(packageDir, "FuzzCrash", artifactRoot, before); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join(packageDir, "testdata"), filepath.Join(packageDir, "testdata", "fuzz"), corpusDir} {
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() {
+			t.Fatalf("pre-existing corpus directory was removed: %s: %v", path, err)
+		}
 	}
 }
 

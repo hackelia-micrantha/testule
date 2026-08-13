@@ -1,6 +1,6 @@
 # RFC 0001: Core Testule model
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Target maturity:** incubating
 - **Scope:** language-neutral model, execution boundary, evidence model, and first implementation sequence
 

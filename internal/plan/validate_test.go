@@ -74,6 +74,15 @@ requirements:
 	assertDiagnosticCode(t, diagnostics, "no_requirements")
 }
 
+func TestValidateAcceptsNameAtUnicodeBoundary(t *testing.T) {
+	name := strings.Repeat("é", 128)
+	input := strings.Replace(validPlan, "name: parser", "name: "+name, 1)
+	_, diagnostics := Decode([]byte(input))
+	if len(diagnostics) != 0 {
+		t.Fatalf("expected no diagnostics at 128 code points, got %#v", diagnostics)
+	}
+}
+
 func TestValidateNameLengthUsesUnicodeCodePoints(t *testing.T) {
 	name := strings.Repeat("é", 129)
 	input := strings.Replace(validPlan, "name: parser", "name: "+name, 1)
@@ -103,6 +112,33 @@ func FuzzDecodeNeverPanics(f *testing.F) {
 		}
 		_, _ = Decode(input)
 	})
+}
+
+func TestDiagnosticsAreSortedDeterministically(t *testing.T) {
+	input := `apiVersion: wrong/v1
+kind: Wrong
+metadata:
+  name: ""
+subject:
+  component: ""
+requirements:
+  levels:
+    unit: sometimes
+  behaviors:
+    negative: sometimes
+`
+	_, diagnostics := Decode([]byte(input))
+	if len(diagnostics) < 2 {
+		t.Fatalf("expected multiple diagnostics, got %#v", diagnostics)
+	}
+	for i := 1; i < len(diagnostics); i++ {
+		previous, current := diagnostics[i-1], diagnostics[i]
+		if previous.Path > current.Path ||
+			(previous.Path == current.Path && previous.Code > current.Code) ||
+			(previous.Path == current.Path && previous.Code == current.Code && previous.Message > current.Message) {
+			t.Fatalf("diagnostics are not sorted: %#v", diagnostics)
+		}
+	}
 }
 
 func TestDecodeRejectsOversizedInput(t *testing.T) {

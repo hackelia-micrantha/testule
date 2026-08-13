@@ -22,6 +22,20 @@ func TestRunValidText(t *testing.T) {
 	}
 }
 
+func TestRunValidJSONUsesEmptyDiagnosticsArray(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exit := Run([]string{"validate", "--format=json", "../../testdata/valid/minimal.yaml"}, &stdout, &stderr)
+	if exit != ExitOK {
+		t.Fatalf("expected exit %d, got %d; stderr=%q", ExitOK, exit, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"valid":true`) || !strings.Contains(stdout.String(), `"diagnostics":[]`) {
+		t.Fatalf("unexpected JSON: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr in JSON mode, got %q", stderr.String())
+	}
+}
+
 func TestRunInvalidJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exit := Run([]string{"validate", "--format=json", "../../testdata/invalid/invalid-disposition.yaml"}, &stdout, &stderr)

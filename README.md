@@ -85,15 +85,18 @@ Time, randomness, generated data, service state, and environment configuration s
 testule validate [--format text|json] <plan.yaml>
 testule fingerprint <plan.yaml>
 testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]
+testule go <test|fuzz|replay|promote> ...
 ```
 
 The current TestPlan supports level, behavior, and generation requirements plus explicitly justified inapplicable requirements. Evidence records bind to a TestPlan fingerprint and subject revision before they can satisfy requirements.
 
 Gap evaluation distinguishes `satisfied`, `missing`, `unsupported`, `skipped`, `failed`, and `inapplicable`. A required unsupported capability is never treated as passing.
 
-See [Evidence and gap analysis](docs/evidence.md) for the current Evidence and evaluator contract.
+The first native adapter executes exact local Go tests and bounded Go fuzz targets, emits normalized Evidence, preserves native fuzz reproducers as digested Testule artifacts, supports bounded replay, and keeps persistent regression promotion explicit. See [Native Go test and fuzz adapter](docs/adapters/go.md).
 
-The current CLI remains local and side-effect free: it does not execute adapters, resolve templates, provision environments, access the network, dereference Evidence references, or mutate the workspace.
+The adapter does not claim host network/CPU/memory isolation. Those controls remain the responsibility of a capability host or future TestEnvironment provider when required.
+
+See [Evidence and gap analysis](docs/evidence.md) for the current Evidence and evaluator contract.
 
 ## Intended users
 

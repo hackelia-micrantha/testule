@@ -41,6 +41,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runFingerprint(args[1:], stdout, stderr)
 	case "gaps":
 		return runGaps(args[1:], stdout, stderr)
+	case "go":
+		return runGo(args[1:], stdout, stderr)
 	default:
 		printUsage(stderr)
 		return ExitUsage
@@ -322,4 +324,5 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  testule validate [--format text|json] <plan.yaml>")
 	fmt.Fprintln(w, "  testule fingerprint <plan.yaml>")
 	fmt.Fprintln(w, "  testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]")
+	fmt.Fprintln(w, "  testule go <test|fuzz|replay|promote> ...")
 }

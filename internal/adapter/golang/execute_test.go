@@ -16,7 +16,6 @@ import (
 
 func TestRunMissingGoToolProducesUnsupportedEvidence(t *testing.T) {
 	workspace := fixtureWorkspace(t)
-	defer os.RemoveAll(filepath.Join(workspace, ".testule"))
 	t.Setenv("PATH", "")
 	result, err := Run(context.Background(), RunConfig{
 		Operation: OperationTest, Plan: adapterPlan(), SubjectRevision: "rev-1", Workspace: workspace,
@@ -33,8 +32,6 @@ func TestRunMissingGoToolProducesUnsupportedEvidence(t *testing.T) {
 
 func TestRunFuzzFailureRetainsNativeReproducer(t *testing.T) {
 	workspace := fixtureWorkspace(t)
-	defer os.RemoveAll(filepath.Join(workspace, ".testule"))
-	defer os.RemoveAll(filepath.Join(workspace, "sample", "testdata"))
 	result, err := Run(context.Background(), RunConfig{
 		Operation: OperationFuzz, Plan: adapterPlan(), SubjectRevision: "rev-fuzz", Workspace: workspace,
 		Package: "./sample", Target: "FuzzCrash", EnvironmentID: "test", RunID: "native-fuzz-failure",
@@ -140,11 +137,30 @@ func TestResolvePackageRejectsTraversal(t *testing.T) {
 
 func fixtureWorkspace(t *testing.T) string {
 	t.Helper()
-	workspace, err := filepath.Abs(filepath.Join("..", "..", "..", "testdata", "go-adapter"))
+	source, err := filepath.Abs(filepath.Join("..", "..", "..", "testdata", "go-adapter"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	workspace := t.TempDir()
+	copyFixtureFile(t, filepath.Join(source, "go.mod"), filepath.Join(workspace, "go.mod"))
+	if err := os.MkdirAll(filepath.Join(workspace, "sample"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"sample.go", "sample_test.go"} {
+		copyFixtureFile(t, filepath.Join(source, "sample", name), filepath.Join(workspace, "sample", name))
+	}
 	return workspace
+}
+
+func copyFixtureFile(t *testing.T, source, destination string) {
+	t.Helper()
+	data, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, data, 0o640); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func adapterPlan() *plan.TestPlan {
@@ -165,7 +181,6 @@ func replayEvidence(name, digest string) *evidence.Evidence {
 
 func TestReplayReproducesFailureWithoutPromoting(t *testing.T) {
 	workspace := fixtureWorkspace(t)
-	defer os.RemoveAll(filepath.Join(workspace, ".testule"))
 	sourceRoot := filepath.Join(workspace, ".testule", "source")
 	if err := os.MkdirAll(filepath.Join(sourceRoot, "reproducers"), 0o750); err != nil {
 		t.Fatal(err)

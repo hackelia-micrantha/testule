@@ -1,0 +1,20 @@
+apiVersion: testule.dev/v1alpha1
+kind: Evidence
+metadata:
+  name: fixture-run
+plan:
+  name: parser
+  fingerprint: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+subject:
+  component: parser
+  revision: rev-fixture
+environment:
+  id: linux-amd64
+provenance:
+  producer: fixture
+  runId: fixture-1
+observations:
+  - id: unit
+    status: passed
+    coverage:
+      levels: [unit]

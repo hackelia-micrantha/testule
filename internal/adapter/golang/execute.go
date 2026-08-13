@@ -25,7 +25,7 @@ func Run(ctx context.Context, cfg RunConfig) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	env, cleanup, err := isolatedGoEnv(artifactRoot)
+	env, cleanup, err := isolatedGoEnv()
 	if err != nil {
 		return Result{}, err
 	}
@@ -211,6 +211,9 @@ func persistResult(artifactRoot string, record *evidence.Evidence, status string
 	diagnostics = append(diagnostics, evidence.ValidateExecutionArtifacts(record)...)
 	if len(diagnostics) != 0 {
 		return Result{}, fmt.Errorf("generated invalid evidence: %v", diagnostics)
+	}
+	if err := verifyRecordedArtifacts(artifactRoot, record.Artifacts); err != nil {
+		return Result{}, fmt.Errorf("verify generated artifacts: %w", err)
 	}
 	evidencePath := filepath.Join(artifactRoot, "evidence.json")
 	f, err := os.OpenFile(evidencePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o640)

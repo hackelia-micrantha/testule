@@ -1,6 +1,6 @@
 # Development and validation
 
-Testule's first executable slice intentionally validates only the strict local `testule.dev/v1alpha1` `TestPlan` subset accepted by RFC 0001.
+Testule validates strict local `testule.dev/v1alpha1` resources and keeps execution behind later adapter slices.
 
 ## Toolchain
 
@@ -10,21 +10,32 @@ The repository pins Go 1.26.5 in mise and CI. YAML decoding uses the maintained 
 
 ```text
 testule validate [--format text|json] <plan.yaml>
+testule fingerprint <plan.yaml>
+testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]
 ```
 
-`validate` reads one local YAML document, performs strict decoding and semantic validation, and does not execute tests, resolve references or templates, access the network, or mutate the workspace. Input is bounded to 1 MiB.
+`validate` reads one local TestPlan YAML document and performs strict structural and semantic validation.
+
+`fingerprint` validates a TestPlan and returns the deterministic plan fingerprint used to bind Evidence.
+
+`gaps` validates a TestPlan and zero or more supplied Evidence documents, verifies their identity/provenance binding, and emits a deterministic coverage/gap report.
+
+These commands do not execute tests, resolve templates, access the network, dereference Evidence references, or mutate the workspace. TestPlan and Evidence input files are each bounded to 1 MiB.
+
+See [Evidence and gap analysis](evidence.md) for the Evidence contract and evaluator semantics.
 
 ### Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Plan is valid |
+| `0` | Validation/evaluation succeeded; required gap requirements are satisfied |
 | `1` | Internal output/runtime failure |
 | `2` | CLI usage error |
-| `3` | Plan is malformed or semantically invalid |
+| `3` | Plan or Evidence is malformed, semantically invalid, stale, or mismatched |
 | `4` | Input could not be read or exceeds the bounded input size |
+| `5` | Gap evaluation completed and blocking gaps/failures remain |
 
-JSON output uses a stable top-level `valid`, `source`, and `diagnostics` envelope. Diagnostics expose a stable `code`, optional field `path`, and human-readable `message`. A valid result emits `diagnostics` as an empty array rather than `null`.
+Validation JSON uses a stable top-level `valid`, `source`, and `diagnostics` envelope. Gap JSON uses the normalized `Report` envelope documented in `docs/evidence.md`.
 
 ## Canonical repository checks
 
@@ -41,12 +52,12 @@ mise run build
 mise run ci
 ```
 
-CI mirrors the same required checks. Staticcheck and the Go runtime are version-pinned.
+CI mirrors the same required checks. Staticcheck, Go, and third-party GitHub Actions are version/SHA pinned.
 
-## Validation layers in this slice
+## Validation layers
 
-- **Unit/component:** YAML decoding and semantic validation, including boundaries and negative cases.
-- **Contract/integration:** CLI runner and a real process test cover output streams and exit codes.
-- **Fuzz/property:** a bounded parser fuzz smoke test asserts arbitrary bounded YAML input cannot panic the decoder/validator. Longer-running fuzz campaigns are intentionally deferred from the per-PR gate.
-- **End-to-end:** not applicable yet because Testule does not execute an external test path in this slice.
-- **Security/negative:** strict unknown-field handling, malformed input, multiple YAML documents, invalid values, control characters, and bounded input size.
+- **Unit/component:** strict TestPlan/Evidence decoding, semantic validation, fingerprinting, and gap state evaluation.
+- **Contract/integration:** CLI runner and real process tests cover output, exit codes, plan fingerprinting, and plan/evidence evaluation.
+- **Fuzz/property:** bounded TestPlan and Evidence decoder smoke campaigns assert arbitrary bounded YAML cannot panic decoding/validation.
+- **End-to-end:** not applicable yet because Testule does not execute a native external test path.
+- **Security/negative:** strict unknown-field handling, malformed/multiple documents, contradictory declarations, duplicate identities, stale/mismatched revisions/fingerprints, bounded strings/collections, and bounded file reads.

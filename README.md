@@ -47,7 +47,7 @@ The initial domain model separates authoring resources from execution mechanisms
 
 - **Evidence** — a generated, versioned record of what ran, under which inputs and environment, with which result and artifacts.
 
-See [RFC 0001](docs/rfcs/0001-core-model.md) for the accepted model, first-slice rules, and deferred decisions.
+See [RFC 0001](docs/rfcs/0001-core-model.md) for the accepted core model and [RFC 0002](docs/rfcs/0002-evidence-gap-analysis.md) for the current Evidence and gap-analysis semantics.
 
 ## Principles
 
@@ -79,28 +79,21 @@ AI-assisted testing should operate through explicit contracts such as generating
 
 Time, randomness, generated data, service state, and environment configuration should be reproducible. When nondeterminism is intentional, it should be declared and enough evidence retained to investigate failures.
 
-## Minimal `v1alpha1` TestPlan
+## Current `v1alpha1` CLI
 
-The first CLI slice deliberately implements only a strict local TestPlan subset:
-
-```yaml
-apiVersion: testule.dev/v1alpha1
-kind: TestPlan
-metadata:
-  name: parser
-subject:
-  component: parser
-requirements:
-  levels:
-    unit: required
-    integration: required
-  behaviors:
-    positive: required
-    negative: required
-    boundary: optional
+```text
+testule validate [--format text|json] <plan.yaml>
+testule fingerprint <plan.yaml>
+testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]
 ```
 
-The first slice does not yet resolve templates, execute adapters, provision environments, access the network, or implement fuzz-specific plan fields. Those capabilities are layered onto the validated core model in later slices.
+The current TestPlan supports level, behavior, and generation requirements plus explicitly justified inapplicable requirements. Evidence records bind to a TestPlan fingerprint and subject revision before they can satisfy requirements.
+
+Gap evaluation distinguishes `satisfied`, `missing`, `unsupported`, `skipped`, `failed`, and `inapplicable`. A required unsupported capability is never treated as passing.
+
+See [Evidence and gap analysis](docs/evidence.md) for the current Evidence and evaluator contract.
+
+The current CLI remains local and side-effect free: it does not execute adapters, resolve templates, provision environments, access the network, dereference Evidence references, or mutate the workspace.
 
 ## Intended users
 

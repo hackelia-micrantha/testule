@@ -1,0 +1,5 @@
+apiVersion: testule.dev/v1alpha1
+kind: Evidence
+metadata:
+  name: bad
+unknown: true

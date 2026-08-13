@@ -1,0 +1,19 @@
+apiVersion: testule.dev/v1alpha1
+kind: TestPlan
+metadata:
+  name: parser-gap
+subject:
+  component: parser
+requirements:
+  levels:
+    unit: required
+    integration: required
+  behaviors:
+    positive: optional
+    negative: required
+  generation:
+    fuzz: required
+  inapplicable:
+    - dimension: level
+      value: endToEnd
+      rationale: No deployed external system exists for this component.

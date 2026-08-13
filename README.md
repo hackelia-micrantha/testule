@@ -2,7 +2,7 @@
 
 Reusable testability contracts, test plans, generated data, environments, fuzzing, and agent-accessible testing capabilities.
 
-> **Status:** incubating. The core model is being defined before executable interfaces are treated as stable.
+> **Status:** incubating. RFC 0001 defines the accepted core model; executable interfaces remain intentionally narrow and versioned as `v1alpha1`.
 
 ## Why Testule
 
@@ -47,7 +47,7 @@ The initial domain model separates authoring resources from execution mechanisms
 
 - **Evidence** — a generated, versioned record of what ran, under which inputs and environment, with which result and artifacts.
 
-See [RFC 0001](docs/rfcs/0001-core-model.md) for the proposed model, accepted first-slice rules, and deferred decisions.
+See [RFC 0001](docs/rfcs/0001-core-model.md) for the accepted model, first-slice rules, and deferred decisions.
 
 ## Principles
 

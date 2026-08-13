@@ -1,0 +1,9 @@
+apiVersion: testule.dev/v1alpha1
+kind: TestPlan
+metadata:
+  name: parser
+subject:
+  component: parser
+requirements:
+  behaviors:
+    negative: sometimes

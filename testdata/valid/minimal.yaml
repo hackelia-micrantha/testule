@@ -1,0 +1,14 @@
+apiVersion: testule.dev/v1alpha1
+kind: TestPlan
+metadata:
+  name: parser
+subject:
+  component: parser
+requirements:
+  levels:
+    unit: required
+    integration: required
+  behaviors:
+    positive: required
+    negative: required
+    boundary: optional

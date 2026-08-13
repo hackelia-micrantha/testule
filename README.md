@@ -27,19 +27,27 @@ Testule treats testing as multiple independent dimensions rather than forcing ev
 | Execution | local, CI, scheduled, pre-release, continuous |
 | Evidence | coverage, minimized reproducer, trace, mutation score, artifact, result |
 
-The initial domain model contains:
+The initial domain model separates authoring resources from execution mechanisms and evidence:
+
+### Authoring resources
 
 - **TestPlan** — declares required validation and quality gates.
 - **TestabilityContract** — declares controllable seams and observable properties exposed by a system under test.
 - **TestDataSpec** — declares fixtures, generators, provenance, constraints, and reproducibility requirements.
 - **TestEnvironmentSpec** — declares runtime, services, network, filesystem, clock, randomness, secrets, resource limits, and reset behavior.
-- **Template** — provides parameterized, composable defaults for plans, data, environments, scenarios, and capability policies.
+- **Template** — provides parameterized, composable defaults for plans, data, environments, and scenarios.
 - **TestScenario** — composes plan, data, environment, faults, actions, and expected properties into an executable outcome.
-- **CapabilityContract** — exposes bounded testing operations to humans, automation, and agents.
-- **Adapter** — maps Testule resources to ecosystem-native tools and translates their results back into normalized evidence.
-- **Evidence** — normalizes what ran, under which inputs and environment, with which result and artifacts.
 
-See [RFC 0001](docs/rfcs/0001-core-model.md) for the proposed model and open decisions.
+### Execution and governance
+
+- **CapabilityContract** — bounds testing operations for humans, automation, and agents.
+- **Adapter** — maps Testule intent to ecosystem-native tools and translates native results back into Testule evidence. It is an execution boundary, not a required user-authored resource.
+
+### Evidence
+
+- **Evidence** — a generated, versioned record of what ran, under which inputs and environment, with which result and artifacts.
+
+See [RFC 0001](docs/rfcs/0001-core-model.md) for the proposed model, accepted first-slice rules, and deferred decisions.
 
 ## Principles
 
@@ -53,7 +61,7 @@ Testule can model unit/component, contract, integration, system, and end-to-end 
 
 ### Fuzzing is first-class
 
-Fuzzing is a generation/execution strategy that may apply at multiple layers: functions, parsers, protocols, APIs, state machines, integration boundaries, event sequences, and fault conditions. A fuzz failure should preserve its seed and environment, minimize the reproducer when possible, and be promotable into a permanent regression case.
+Fuzzing is a generation/execution strategy that may apply at multiple layers: functions, parsers, protocols, APIs, state machines, integration boundaries, event sequences, and fault conditions. A fuzz failure should preserve the concrete failing input or corpus artifact, minimize the reproducer when possible, retain deterministic seeds when the underlying tool exposes them, and be promotable into a permanent regression case.
 
 ### Data and environments are inputs
 
@@ -71,17 +79,17 @@ AI-assisted testing should operate through explicit contracts such as generating
 
 Time, randomness, generated data, service state, and environment configuration should be reproducible. When nondeterminism is intentional, it should be declared and enough evidence retained to investigate failures.
 
-## Example direction
+## Minimal `v1alpha1` TestPlan
+
+The first CLI slice deliberately implements only a strict local TestPlan subset:
 
 ```yaml
 apiVersion: testule.dev/v1alpha1
 kind: TestPlan
 metadata:
   name: parser
-
 subject:
   component: parser
-
 requirements:
   levels:
     unit: required
@@ -89,20 +97,10 @@ requirements:
   behaviors:
     positive: required
     negative: required
-    boundary: required
-  generation:
-    propertyBased: required
-    fuzz:
-      required: true
-      minimumDuration: 60s
-
-qualityGates:
-  fuzz:
-    crashes: 0
-    sanitizerFailures: 0
+    boundary: optional
 ```
 
-The exact schema remains draft until the core model RFC is accepted.
+The first slice does not yet resolve templates, execute adapters, provision environments, access the network, or implement fuzz-specific plan fields. Those capabilities are layered onto the validated core model in later slices.
 
 ## Intended users
 
@@ -126,9 +124,9 @@ Testule does not initially aim to:
 ## Initial delivery sequence
 
 1. Define and version the core specification and conformance rules.
-2. Bootstrap the Go CLI and canonical validation/static-analysis entry points.
+2. Bootstrap the Go CLI and strict minimal TestPlan validation with canonical local/CI validation and static analysis.
 3. Add normalized evidence and a test-coverage/gap matrix.
-4. Deliver the first adapter vertical slice using Go tests and native fuzzing, including deterministic replay and regression promotion.
+4. Deliver the first adapter vertical slice using Go tests and native fuzzing, including replayable failure evidence and regression promotion.
 5. Define and harden agent-accessible capability contracts.
 6. Add generated-data, environment, template, and scenario resources against the proven core model.
 7. Expand adapters, environment providers, mutation testing, fault injection, and additional generators based on demonstrated use cases.

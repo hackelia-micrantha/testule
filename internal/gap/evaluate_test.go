@@ -137,13 +137,13 @@ func representativePlan() *plan.TestPlan {
 
 func evidenceRecord(name, fingerprint, revision string, observations []evidence.Observation) *evidence.Evidence {
 	return &evidence.Evidence{
-		APIVersion:  plan.APIVersion,
-		Kind:        evidence.Kind,
-		Metadata:    &evidence.Metadata{Name: name},
-		Plan:        &evidence.PlanReference{Name: "parser", Fingerprint: fingerprint},
-		Subject:     &evidence.Subject{Component: "parser", Revision: revision},
-		Environment: &evidence.Environment{ID: "linux-amd64"},
-		Provenance:  &evidence.Provenance{Producer: "fixture", RunID: "run-" + name},
+		APIVersion:   plan.APIVersion,
+		Kind:         evidence.Kind,
+		Metadata:     &evidence.Metadata{Name: name},
+		Plan:         &evidence.PlanReference{Name: "parser", Fingerprint: fingerprint},
+		Subject:      &evidence.Subject{Component: "parser", Revision: revision},
+		Environment:  &evidence.Environment{ID: "linux-amd64"},
+		Provenance:   &evidence.Provenance{Producer: "fixture", RunID: "run-" + name},
 		Observations: observations,
 	}
 }

@@ -1,0 +1,46 @@
+[tools]
+go = "1.26.5"
+
+[tasks.fmt]
+description = "Verify Go formatting"
+run = 'test -z "$(gofmt -l .)"'
+
+[tasks.tidy]
+description = "Verify module metadata is tidy"
+run = [
+  "go mod tidy",
+  "git diff --exit-code -- go.mod go.sum",
+]
+
+[tasks.vet]
+description = "Run Go vet"
+run = "go vet ./..."
+
+[tasks.staticcheck]
+description = "Run pinned Staticcheck"
+run = "go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./..."
+
+[tasks.test]
+description = "Run tests with race detection"
+run = "go test -race ./..."
+
+[tasks.fuzz-smoke]
+description = "Run a bounded parser fuzz smoke test"
+run = "go test ./internal/plan -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s"
+
+[tasks.build]
+description = "Build the Testule CLI"
+run = "go build ./cmd/testule"
+
+[tasks.ci]
+description = "Run the required validation gate"
+run = [
+  'test -z "$(gofmt -l .)"',
+  "go mod tidy",
+  "git diff --exit-code -- go.mod go.sum",
+  "go vet ./...",
+  "go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...",
+  "go test -race ./...",
+  "go test ./internal/plan -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s",
+  "go build ./cmd/testule",
+]

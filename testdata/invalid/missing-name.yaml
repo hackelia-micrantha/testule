@@ -1,0 +1,8 @@
+apiVersion: testule.dev/v1alpha1
+kind: TestPlan
+metadata: {}
+subject:
+  component: parser
+requirements:
+  levels:
+    unit: required

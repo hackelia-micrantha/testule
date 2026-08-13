@@ -12,12 +12,8 @@ import (
 
 func TestGoAdapterEndToEndEvidenceAndGaps(t *testing.T) {
 	binary := buildTestuleBinary(t)
-	workspace := filepath.Clean(filepath.Join("..", "..", "testdata", "go-adapter"))
+	workspace := copyGoAdapterFixture(t)
 	planPath := filepath.Clean(filepath.Join("..", "..", "testdata", "valid", "gap-plan.yaml"))
-	artifactRoot := filepath.Join(workspace, ".testule")
-	_ = os.RemoveAll(artifactRoot)
-	defer os.RemoveAll(artifactRoot)
-	defer os.RemoveAll(filepath.Join(workspace, "sample", "testdata"))
 
 	unitOutput, err := exec.Command(binary,
 		"go", "test",
@@ -77,10 +73,8 @@ func TestGoAdapterEndToEndEvidenceAndGaps(t *testing.T) {
 
 func TestGoAdapterFailingTestReturnsFailureEvidence(t *testing.T) {
 	binary := buildTestuleBinary(t)
-	workspace := filepath.Clean(filepath.Join("..", "..", "testdata", "go-adapter"))
+	workspace := copyGoAdapterFixture(t)
 	planPath := filepath.Clean(filepath.Join("..", "..", "testdata", "valid", "gap-plan.yaml"))
-	_ = os.RemoveAll(filepath.Join(workspace, ".testule"))
-	defer os.RemoveAll(filepath.Join(workspace, ".testule"))
 
 	output, err := exec.Command(binary,
 		"go", "test",
@@ -105,6 +99,31 @@ func TestGoAdapterFailingTestReturnsFailureEvidence(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"status": "failed"`) || !strings.Contains(string(data), `"adapter": "go-native/v1alpha1"`) {
 		t.Fatalf("failure evidence missing normalized execution metadata:\n%s", data)
+	}
+}
+
+func copyGoAdapterFixture(t *testing.T) string {
+	t.Helper()
+	source := filepath.Clean(filepath.Join("..", "..", "testdata", "go-adapter"))
+	workspace := t.TempDir()
+	copyProcessFixtureFile(t, filepath.Join(source, "go.mod"), filepath.Join(workspace, "go.mod"))
+	if err := os.MkdirAll(filepath.Join(workspace, "sample"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"sample.go", "sample_test.go"} {
+		copyProcessFixtureFile(t, filepath.Join(source, "sample", name), filepath.Join(workspace, "sample", name))
+	}
+	return workspace
+}
+
+func copyProcessFixtureFile(t *testing.T, source, destination string) {
+	t.Helper()
+	data, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, data, 0o640); err != nil {
+		t.Fatal(err)
 	}
 }
 

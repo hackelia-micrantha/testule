@@ -33,8 +33,10 @@ The initial domain model contains:
 - **TestabilityContract** — declares controllable seams and observable properties exposed by a system under test.
 - **TestDataSpec** — declares fixtures, generators, provenance, constraints, and reproducibility requirements.
 - **TestEnvironmentSpec** — declares runtime, services, network, filesystem, clock, randomness, secrets, resource limits, and reset behavior.
+- **Template** — provides parameterized, composable defaults for plans, data, environments, scenarios, and capability policies.
 - **TestScenario** — composes plan, data, environment, faults, actions, and expected properties into an executable outcome.
 - **CapabilityContract** — exposes bounded testing operations to humans, automation, and agents.
+- **Adapter** — maps Testule resources to ecosystem-native tools and translates their results back into normalized evidence.
 - **Evidence** — normalizes what ran, under which inputs and environment, with which result and artifacts.
 
 See [RFC 0001](docs/rfcs/0001-core-model.md) for the proposed model and open decisions.
@@ -125,11 +127,11 @@ Testule does not initially aim to:
 
 1. Define and version the core specification and conformance rules.
 2. Bootstrap the Go CLI and canonical validation/static-analysis entry points.
-3. Implement plan validation and a test-coverage/gap matrix.
-4. Deliver the first adapter vertical slice using Go tests and native fuzzing.
-5. Add normalized evidence, deterministic replay, and regression promotion.
-6. Define and harden agent-accessible capability contracts.
-7. Expand adapters, templates, environment providers, mutation testing, and fault injection based on demonstrated use cases.
+3. Add normalized evidence and a test-coverage/gap matrix.
+4. Deliver the first adapter vertical slice using Go tests and native fuzzing, including deterministic replay and regression promotion.
+5. Define and harden agent-accessible capability contracts.
+6. Add generated-data, environment, template, and scenario resources against the proven core model.
+7. Expand adapters, environment providers, mutation testing, fault injection, and additional generators based on demonstrated use cases.
 
 The issue tracker is the source of truth for executable work and priority.
 

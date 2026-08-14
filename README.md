@@ -51,6 +51,14 @@ See [RFC 0001](docs/rfcs/0001-core-model.md) for the accepted core model and [RF
 
 ## Principles
 
+### Language-agnostic core
+
+Testule's product contract is language- and framework-agnostic. `TestPlan`, testability, data, environment, scenario, capability, Evidence, and gap semantics must not depend on Go, Rust, JVM, Python, JavaScript/TypeScript, .NET, mobile, or any other ecosystem.
+
+Go is the bootstrap implementation language and the first reference adapter only. Native package conventions, target syntax, commands, corpus layouts, tool-specific result parsing, and replay mechanics belong behind an adapter boundary or an explicitly namespaced adapter extension. Adding another adapter must not require changing the meaning of core Testule requirements or gap states.
+
+The incubating `testule go ...` CLI is therefore an adapter-specific convenience surface, not the permanent cross-language execution architecture. A stable generic adapter contract should be derived only after at least two materially different ecosystems have proven the common requirements. See issue #16.
+
 ### Evidence over test count
 
 Coverage percentages and test counts are supporting signals. The primary question is whether declared behavior, failure modes, boundaries, and safety properties have trustworthy evidence.
@@ -85,15 +93,18 @@ Time, randomness, generated data, service state, and environment configuration s
 testule validate [--format text|json] <plan.yaml>
 testule fingerprint <plan.yaml>
 testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]
+testule go <test|fuzz|replay|promote> ...
 ```
 
 The current TestPlan supports level, behavior, and generation requirements plus explicitly justified inapplicable requirements. Evidence records bind to a TestPlan fingerprint and subject revision before they can satisfy requirements.
 
 Gap evaluation distinguishes `satisfied`, `missing`, `unsupported`, `skipped`, `failed`, and `inapplicable`. A required unsupported capability is never treated as passing.
 
-See [Evidence and gap analysis](docs/evidence.md) for the current Evidence and evaluator contract.
+The first native adapter executes exact local Go tests and bounded Go fuzz targets, emits normalized Evidence, preserves native fuzz reproducers as digested Testule artifacts, supports bounded replay, and keeps persistent regression promotion explicit. See [Native Go test and fuzz adapter](docs/adapters/go.md).
 
-The current CLI remains local and side-effect free: it does not execute adapters, resolve templates, provision environments, access the network, dereference Evidence references, or mutate the workspace.
+The adapter does not claim host network/CPU/memory isolation. Those controls remain the responsibility of a capability host or future TestEnvironment provider when required.
+
+See [Evidence and gap analysis](docs/evidence.md) for the current Evidence and evaluator contract.
 
 ## Intended users
 
@@ -116,13 +127,13 @@ Testule does not initially aim to:
 
 ## Initial delivery sequence
 
-1. Define and version the core specification and conformance rules.
-2. Bootstrap the Go CLI and strict minimal TestPlan validation with canonical local/CI validation and static analysis.
+1. Define and version the language-agnostic core specification and conformance rules.
+2. Bootstrap the reference CLI implementation and strict minimal TestPlan validation with canonical local/CI validation and static analysis. The current implementation language is Go, but this is not a product-language constraint.
 3. Add normalized evidence and a test-coverage/gap matrix.
-4. Deliver the first adapter vertical slice using Go tests and native fuzzing, including replayable failure evidence and regression promotion.
+4. Deliver the first reference adapter vertical slice using Go tests and native fuzzing, including replayable failure evidence and regression promotion.
 5. Define and harden agent-accessible capability contracts.
 6. Add generated-data, environment, template, and scenario resources against the proven core model.
-7. Expand adapters, environment providers, mutation testing, fault injection, and additional generators based on demonstrated use cases.
+7. Prove the language-neutral adapter boundary with at least one materially different second ecosystem before stabilizing a generic adapter protocol; then expand adapters, environment providers, mutation testing, fault injection, and additional generators based on demonstrated use cases.
 
 The issue tracker is the source of truth for executable work and priority.
 

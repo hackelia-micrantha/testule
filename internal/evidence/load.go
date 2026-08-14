@@ -37,7 +37,10 @@ func Decode(data []byte) (*Evidence, []plan.Diagnostic) {
 		return nil, []plan.Diagnostic{decodeDiagnostic(err)}
 	}
 
-	return &e, Validate(&e)
+	diagnostics := Validate(&e)
+	diagnostics = append(diagnostics, ValidateExecutionArtifacts(&e)...)
+	sortDiagnostics(diagnostics)
+	return &e, diagnostics
 }
 
 func decodeDiagnostic(err error) plan.Diagnostic {

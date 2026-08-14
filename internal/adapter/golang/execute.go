@@ -47,41 +47,23 @@ func Run(ctx context.Context, cfg RunConfig) (Result, error) {
 		return Result{}, err
 	}
 
-	listed, listResult, err := targetExists(ctx, binary, workspace, env, cfg.Package, cfg.Target, cfg.Timeout)
-	if err != nil {
-		return Result{}, err
-	}
-	if !listed {
-		status := "unsupported"
-		if listResult.exitCode != 0 || listResult.timedOut {
-			status = "failed"
-		}
-		record := buildEvidence(cfg, fingerprint, version, buildListArgs(cfg.Package, cfg.Target), listResult, status, nil)
-		return persistResult(artifactRoot, record, status, listResult.stdout, listResult.stderr)
-	}
-
-	var before corpusSnapshot
-	if cfg.Operation == OperationFuzz {
-		before, err = snapshotCorpus(packageDir, cfg.Target)
-		if err != nil {
-			return Result{}, err
-		}
-	}
-
 	runCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 	result, err := runCommand(runCtx, binary, intendedArgs[1:], workspace, env)
 	if err != nil {
 		return Result{}, err
 	}
+	observedTarget, reportedReproducers := inspectRunOutput(result.stdout, cfg.Target)
 	status := "passed"
 	if result.exitCode != 0 || result.timedOut {
 		status = "failed"
+	} else if !observedTarget {
+		status = "unsupported"
 	}
 
 	var reproducers []evidence.Artifact
-	if cfg.Operation == OperationFuzz && status == "failed" {
-		reproducers, err = collectNewReproducers(packageDir, cfg.Target, artifactRoot, before)
+	if cfg.Operation == OperationFuzz && status == "failed" && len(reportedReproducers) > 0 {
+		reproducers, err = collectReportedReproducers(packageDir, cfg.Target, artifactRoot, reportedReproducers)
 		if err != nil {
 			return Result{}, err
 		}
@@ -103,30 +85,6 @@ func buildRunArgs(cfg RunConfig) []string {
 		cfg.Package,
 	)
 	return args
-}
-
-func buildListArgs(packageValue, target string) []string {
-	return []string{"go", "test", "-list=^" + regexp.QuoteMeta(target) + "$", packageValue}
-}
-
-func targetExists(ctx context.Context, binary, workspace string, env []string, packageValue, target string, timeout time.Duration) (bool, commandResult, error) {
-	listCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	command := buildListArgs(packageValue, target)
-	args := command[1:]
-	result, err := runCommand(listCtx, binary, args, workspace, env)
-	if err != nil {
-		return false, result, err
-	}
-	if result.exitCode != 0 || result.timedOut {
-		return false, result, nil
-	}
-	for _, line := range strings.Split(string(result.stdout), "\n") {
-		if strings.TrimSpace(line) == target {
-			return true, result, nil
-		}
-	}
-	return false, result, nil
 }
 
 func goVersion(ctx context.Context, binary, workspace string, env []string) (string, error) {

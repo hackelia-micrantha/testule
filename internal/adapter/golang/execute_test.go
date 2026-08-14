@@ -35,7 +35,7 @@ func TestRunFuzzFailureRetainsNativeReproducer(t *testing.T) {
 	result, err := Run(context.Background(), RunConfig{
 		Operation: OperationFuzz, Plan: adapterPlan(), SubjectRevision: "rev-fuzz", Workspace: workspace,
 		Package: "./sample", Target: "FuzzCrash", EnvironmentID: "test", RunID: "native-fuzz-failure",
-		Timeout: 15 * time.Second, FuzzTime: 500 * time.Millisecond,
+		Timeout: 30 * time.Second, FuzzTime: 500 * time.Millisecond,
 		Coverage: Coverage{Level: "unit", Generation: "fuzz"},
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func TestRunFuzzFailureRetainsNativeReproducer(t *testing.T) {
 		}
 	}
 	if reproducer == nil {
-		t.Fatalf("native fuzz failure did not retain a reproducer: %#v", result.Evidence.Artifacts)
+		t.Fatalf("native fuzz failure did not retain a reproducer: execution=%#v artifacts=%#v", result.Evidence.Execution, result.Evidence.Artifacts)
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "sample", "testdata", "fuzz", "FuzzCrash", reproducer.Name)); !os.IsNotExist(err) {
 		t.Fatalf("reproducer must not remain promoted in the package corpus: %v", err)

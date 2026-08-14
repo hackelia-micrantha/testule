@@ -51,6 +51,14 @@ See [RFC 0001](docs/rfcs/0001-core-model.md) for the accepted core model and [RF
 
 ## Principles
 
+### Language-agnostic core
+
+Testule's product contract is language- and framework-agnostic. `TestPlan`, testability, data, environment, scenario, capability, Evidence, and gap semantics must not depend on Go, Rust, JVM, Python, JavaScript/TypeScript, .NET, mobile, or any other ecosystem.
+
+Go is the bootstrap implementation language and the first reference adapter only. Native package conventions, target syntax, commands, corpus layouts, tool-specific result parsing, and replay mechanics belong behind an adapter boundary or an explicitly namespaced adapter extension. Adding another adapter must not require changing the meaning of core Testule requirements or gap states.
+
+The incubating `testule go ...` CLI is therefore an adapter-specific convenience surface, not the permanent cross-language execution architecture. A stable generic adapter contract should be derived only after at least two materially different ecosystems have proven the common requirements. See issue #16.
+
 ### Evidence over test count
 
 Coverage percentages and test counts are supporting signals. The primary question is whether declared behavior, failure modes, boundaries, and safety properties have trustworthy evidence.
@@ -119,13 +127,13 @@ Testule does not initially aim to:
 
 ## Initial delivery sequence
 
-1. Define and version the core specification and conformance rules.
-2. Bootstrap the Go CLI and strict minimal TestPlan validation with canonical local/CI validation and static analysis.
+1. Define and version the language-agnostic core specification and conformance rules.
+2. Bootstrap the reference CLI implementation and strict minimal TestPlan validation with canonical local/CI validation and static analysis. The current implementation language is Go, but this is not a product-language constraint.
 3. Add normalized evidence and a test-coverage/gap matrix.
-4. Deliver the first adapter vertical slice using Go tests and native fuzzing, including replayable failure evidence and regression promotion.
+4. Deliver the first reference adapter vertical slice using Go tests and native fuzzing, including replayable failure evidence and regression promotion.
 5. Define and harden agent-accessible capability contracts.
 6. Add generated-data, environment, template, and scenario resources against the proven core model.
-7. Expand adapters, environment providers, mutation testing, fault injection, and additional generators based on demonstrated use cases.
+7. Prove the language-neutral adapter boundary with at least one materially different second ecosystem before stabilizing a generic adapter protocol; then expand adapters, environment providers, mutation testing, fault injection, and additional generators based on demonstrated use cases.
 
 The issue tracker is the source of truth for executable work and priority.
 

@@ -59,16 +59,16 @@ func TestCollectReportedReproducerPreservesUnrelatedConcurrentEntry(t *testing.T
 func TestRunExecutesPackageLifecycleOnce(t *testing.T) {
 	workspace := lifecycleFixtureWorkspace(t)
 	result, err := Run(context.Background(), RunConfig{
-		Operation: OperationTest,
-		Plan: adapterPlan(),
+		Operation:       OperationTest,
+		Plan:            adapterPlan(),
 		SubjectRevision: "rev-lifecycle",
-		Workspace: workspace,
-		Package: "./sample",
-		Target: "TestPass",
-		EnvironmentID: "test",
-		RunID: "lifecycle-once",
-		Timeout: 15 * time.Second,
-		Coverage: Coverage{Level: "unit", Generation: "example"},
+		Workspace:       workspace,
+		Package:         "./sample",
+		Target:          "TestPass",
+		EnvironmentID:   "test",
+		RunID:           "lifecycle-once",
+		Timeout:         15 * time.Second,
+		Coverage:        Coverage{Level: "unit", Generation: "example"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -88,16 +88,16 @@ func TestRunExecutesPackageLifecycleOnce(t *testing.T) {
 func TestRunMissingTargetIsUnsupportedWithoutDiscoveryExecution(t *testing.T) {
 	workspace := lifecycleFixtureWorkspace(t)
 	result, err := Run(context.Background(), RunConfig{
-		Operation: OperationTest,
-		Plan: adapterPlan(),
+		Operation:       OperationTest,
+		Plan:            adapterPlan(),
 		SubjectRevision: "rev-missing",
-		Workspace: workspace,
-		Package: "./sample",
-		Target: "TestMissing",
-		EnvironmentID: "test",
-		RunID: "missing-target",
-		Timeout: 15 * time.Second,
-		Coverage: Coverage{Level: "unit", Generation: "example"},
+		Workspace:       workspace,
+		Package:         "./sample",
+		Target:          "TestMissing",
+		EnvironmentID:   "test",
+		RunID:           "missing-target",
+		Timeout:         15 * time.Second,
+		Coverage:        Coverage{Level: "unit", Generation: "example"},
 	})
 	if err != nil {
 		t.Fatal(err)

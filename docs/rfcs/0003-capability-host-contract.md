@@ -1,4 +1,4 @@
-# RFC 0002: Capability invocation and host integration
+# RFC 0003: Capability invocation and host integration
 
 - **Status:** Draft
 - **Target maturity:** incubating

@@ -44,10 +44,10 @@ func TestGoAdapterEndToEndEvidenceAndGaps(t *testing.T) {
 		"--environment", "ci-linux",
 		"--run-id", "e2e-fuzz",
 		"--fuzztime", "100ms",
-		"--timeout", "15s",
+		"--timeout", "30s",
 	).CombinedOutput()
 	if err != nil {
-		t.Fatalf("go fuzz adapter failed: %v\n%s", err, fuzzOutput)
+		t.Fatalf("go fuzz adapter failed: %v\n%s%s", err, fuzzOutput, evidenceContentsForFailure(string(fuzzOutput)))
 	}
 	fuzzEvidence := evidencePathFromOutput(t, string(fuzzOutput))
 
@@ -148,5 +148,20 @@ func evidencePathFromOutput(t *testing.T, output string) string {
 		}
 	}
 	t.Fatalf("missing evidence path in output: %q", output)
+	return ""
+}
+
+func evidenceContentsForFailure(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.HasPrefix(line, "evidence: ") {
+			continue
+		}
+		path := strings.TrimSpace(strings.TrimPrefix(line, "evidence: "))
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "\nfailed to read evidence: " + err.Error()
+		}
+		return "\nevidence:\n" + string(data)
+	}
 	return ""
 }

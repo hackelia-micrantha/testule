@@ -41,7 +41,7 @@ testule go promote \
 
 `--package` is restricted to `.` or an exact `./relative/package` path. `...`, import paths, traversal, backslashes, and symlink escapes are rejected. Test targets must be exact `Test*` identifiers and fuzz targets exact `Fuzz*` identifiers; callers do not supply arbitrary Go regular expressions or shell fragments.
 
-The adapter verifies target existence with `go test -list` before execution. A missing Go tool or missing exact target is normalized as `unsupported`. Compilation/listing errors, test failures, fuzz failures, and timeouts are normalized as `failed` Evidence.
+The adapter executes the requested exact target once and uses the resulting `go test -json` event stream to determine whether that target actually ran. It does not perform a preliminary `go test -list` invocation, avoiding duplicate package initialization or `TestMain` lifecycle execution. A missing Go tool or exact target is normalized as `unsupported`; compilation/setup errors, test failures, fuzz failures, and timeouts are normalized as `failed` Evidence.
 
 ## Execution bounds
 
@@ -63,7 +63,7 @@ The child environment is constructed explicitly instead of inheriting ambient en
 
 The direct adapter does **not** claim OS-level network, CPU, memory, process-count, or syscall isolation. Test code can still use authority available to the operating-system process, including host network access and same-user workspace access. When those controls are mandatory, a capability host or TestEnvironment provider must enforce them before invoking the adapter; unsupported mandatory isolation must fail closed rather than being represented as isolated execution.
 
-The direct adapter also treats its artifact and corpus paths defensively: directory chains are rechecked for symlinks after native execution, result files are created exclusively rather than overwritten, newly observed fuzz corpus entries must be regular non-symlink files, and every recorded artifact digest is revalidated immediately before Evidence is committed. These controls prevent ordinary path-substitution and stale-artifact attacks; they do not turn same-user native test code into a hostile-code sandbox.
+The direct adapter also treats its artifact and corpus paths defensively: directory chains are rechecked for symlinks after native execution, result files are created exclusively rather than overwritten, reported fuzz corpus entries must be regular non-symlink files, and every recorded artifact digest is revalidated immediately before Evidence is committed. Fuzz cleanup is ownership-scoped: only the concrete reproducer paths reported by this invocation's Go event stream are captured and removed; unrelated files created concurrently in the same corpus directory are left untouched. These controls prevent ordinary path-substitution, stale-artifact, and cross-run cleanup mistakes; they do not turn same-user native test code into a hostile-code sandbox.
 
 ## Evidence
 
@@ -96,19 +96,19 @@ Every adapter record remains bound to the exact TestPlan fingerprint, subject co
 
 ## Fuzz failure lifecycle
 
-A new native fuzz failure follows this lifecycle:
+A native fuzz failure follows this lifecycle:
 
 ```text
 Go fuzz failure
-  -> Go-minimized corpus entry
+  -> Go reports the concrete minimized corpus entry
   -> copy + SHA-256 into .testule/artifacts/<run>/reproducers/
-  -> remove the newly created package corpus entry
+  -> remove only that reported package corpus entry
   -> failed normalized Evidence
   -> explicit replay
   -> optional explicit promotion
 ```
 
-Go's native fuzz engine performs its own failure minimization before writing the corpus entry. Testule preserves that concrete entry and its digest. Cleanup removes only corpus directories that were created by the current adapter operation; pre-existing empty `testdata/fuzz` directories are preserved.
+Go's native fuzz engine performs its own failure minimization before writing the corpus entry. Testule preserves the concrete reported entry and its digest. Testule does not classify arbitrary "new since snapshot" corpus files as its own output; unrelated concurrent corpus writes remain untouched.
 
 `replay` verifies the Evidence binding, exact subject revision, Evidence/artifact path symlink policy, and digest. It stages the reproducer into the package corpus only for the bounded replay command, then removes the staged copy. Replay emits new Evidence under the explicitly supplied replay environment identity.
 

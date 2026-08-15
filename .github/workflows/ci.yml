@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: runner-testule
     timeout-minutes: 10
     steps:
       - name: Check out repository

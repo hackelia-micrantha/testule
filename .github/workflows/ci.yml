@@ -16,47 +16,56 @@ concurrency:
 jobs:
   validate:
     runs-on: runner-testule
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "1.26.5"
-          cache: true
-          cache-dependency-path: go.sum
+      - name: Verify pinned toolchain
+        run: |
+          nix --extra-experimental-features 'nix-command flakes' flake metadata --no-write-lock-file
+          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash -lc '
+            set -euo pipefail
+            go version
+            staticcheck -version
+            python --version
+          '
 
       - name: Verify formatting
         run: |
-          files="$(gofmt -l .)"
-          if [ -n "$files" ]; then
-            printf '%s\n' "$files"
-            gofmt -d $files
-            exit 1
-          fi
+          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash -lc '
+            set -euo pipefail
+            files="$(gofmt -l .)"
+            if [ -n "$files" ]; then
+              printf "%s\n" "$files"
+              gofmt -d $files
+              exit 1
+            fi
+          '
 
       - name: Verify module metadata
         run: |
-          go mod tidy
-          git diff --exit-code -- go.mod go.sum
+          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash -lc '
+            set -euo pipefail
+            go mod tidy
+            git diff --exit-code -- go.mod go.sum
+          '
 
       - name: Vet
-        run: go vet ./...
+        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go vet ./...
 
       - name: Staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
+        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command staticcheck ./...
 
       - name: Test
-        run: go test -race ./...
+        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go test -race ./...
 
       - name: Fuzz smoke test
         run: |
-          go test ./internal/plan -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
-          go test ./internal/evidence -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
+          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go test ./internal/plan -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
+          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go test ./internal/evidence -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
 
       - name: Build
-        run: go build ./cmd/testule
+        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go build ./cmd/testule

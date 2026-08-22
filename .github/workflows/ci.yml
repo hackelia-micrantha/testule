@@ -33,39 +33,5 @@ jobs:
             python --version
           '
 
-      - name: Verify formatting
-        run: |
-          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash -lc '
-            set -euo pipefail
-            files="$(gofmt -l .)"
-            if [ -n "$files" ]; then
-              printf "%s\n" "$files"
-              gofmt -d $files
-              exit 1
-            fi
-          '
-
-      - name: Verify module metadata
-        run: |
-          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash -lc '
-            set -euo pipefail
-            go mod tidy
-            git diff --exit-code -- go.mod go.sum
-          '
-
-      - name: Vet
-        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go vet ./...
-
-      - name: Staticcheck
-        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command staticcheck ./...
-
-      - name: Test
-        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go test -race ./...
-
-      - name: Fuzz smoke test
-        run: |
-          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go test ./internal/plan -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
-          nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go test ./internal/evidence -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s
-
-      - name: Build
-        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command go build ./cmd/testule
+      - name: Validate
+        run: nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash scripts/ci.sh

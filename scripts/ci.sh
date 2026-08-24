@@ -6,11 +6,13 @@ section() {
 }
 
 # Dubnium JIT runners intentionally mount /tmp noexec. Go test/fuzz builds
-# executable test binaries in its temporary build directory, so keep that
-# build area inside the checked-out workspace rather than weakening the host.
+# executable binaries and tests also create nested temporary workspaces, so
+# keep both generic and Go-specific temporary state inside the executable
+# checkout workspace rather than weakening the host mount policy.
+TMPDIR="$PWD/.tmp/runtime"
 GOTMPDIR="$PWD/.tmp/go"
-export GOTMPDIR
-mkdir -p "$GOTMPDIR"
+export TMPDIR GOTMPDIR
+mkdir -p "$TMPDIR" "$GOTMPDIR"
 trap 'rm -rf "$PWD/.tmp"' EXIT
 
 section "format"

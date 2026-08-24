@@ -96,6 +96,8 @@ testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evi
 testule go <test|fuzz|replay|promote> ...
 ```
 
+The current CLI is being hardened as a first-class Unix interface: stdin/stdout composition, structured machine output, stable exit semantics, broken-pipe behavior, and man-page documentation are specified in [CLI and Unix composability contract](docs/cli-unix-composability.md) and tracked by epic #25.
+
 The current TestPlan supports level, behavior, and generation requirements plus explicitly justified inapplicable requirements. Evidence records bind to a TestPlan fingerprint and subject revision before they can satisfy requirements.
 
 Gap evaluation distinguishes `satisfied`, `missing`, `unsupported`, `skipped`, `failed`, and `inapplicable`. A required unsupported capability is never treated as passing.

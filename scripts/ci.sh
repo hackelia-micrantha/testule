@@ -5,6 +5,14 @@ section() {
   printf '\n==> %s\n' "$1"
 }
 
+# Dubnium JIT runners intentionally mount /tmp noexec. Go test/fuzz builds
+# executable test binaries in its temporary build directory, so keep that
+# build area inside the checked-out workspace rather than weakening the host.
+GOTMPDIR="$PWD/.tmp/go"
+export GOTMPDIR
+mkdir -p "$GOTMPDIR"
+trap 'rm -rf "$PWD/.tmp"' EXIT
+
 section "format"
 files="$(gofmt -l .)"
 if [[ -n "$files" ]]; then

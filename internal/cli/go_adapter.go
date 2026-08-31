@@ -63,7 +63,7 @@ func runGoExecute(operation goadapter.Operation, args []string, stdout, stderr i
 		generation = "fuzz"
 		fs.DurationVar(&fuzzTime, "fuzztime", fuzzTime, "bounded native fuzz duration")
 	}
-	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || planPath == "" || revision == "" || workspace == "" || target == "" || environmentID == "" || runID == "" || level == "" {
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || planPath == "" || planPath == "-" || revision == "" || workspace == "" || target == "" || environmentID == "" || runID == "" || level == "" {
 		printGoUsage(stderr)
 		return ExitUsage
 	}
@@ -104,7 +104,7 @@ func runGoReplay(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&environmentID, "environment", "", "replay environment identity")
 	fs.StringVar(&runID, "run-id", "", "replay run identity")
 	fs.DurationVar(&timeout, "timeout", timeout, "wall-clock timeout")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || evidencePath == "" || revision == "" || workspace == "" || environmentID == "" || runID == "" {
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || evidencePath == "" || evidencePath == "-" || revision == "" || workspace == "" || environmentID == "" || runID == "" {
 		printGoUsage(stderr)
 		return ExitUsage
 	}
@@ -134,7 +134,7 @@ func runGoPromote(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&evidencePath, "evidence", "", "source fuzz Evidence path")
 	fs.StringVar(&revision, "subject-revision", "", "subject revision")
 	fs.StringVar(&workspace, "workspace", "", "Go module workspace")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || evidencePath == "" || revision == "" || workspace == "" {
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || evidencePath == "" || evidencePath == "-" || revision == "" || workspace == "" {
 		printGoUsage(stderr)
 		return ExitUsage
 	}

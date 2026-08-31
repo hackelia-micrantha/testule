@@ -90,13 +90,15 @@ Time, randomness, generated data, service state, and environment configuration s
 ## Current `v1alpha1` CLI
 
 ```text
-testule validate [--format text|json] <plan.yaml>
-testule fingerprint <plan.yaml>
-testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]
+testule validate [--format text|json] <plan.yaml|->
+testule fingerprint <plan.yaml|->
+testule gaps [--format text|json] --subject-revision <revision> <plan.yaml|-> [evidence.yaml|- ...]
 testule go <test|fuzz|replay|promote> ...
 ```
 
 The current CLI is being hardened as a first-class Unix interface: stdin/stdout composition, structured machine output, stable exit semantics, broken-pipe behavior, and man-page documentation are specified in [CLI and Unix composability contract](docs/cli-unix-composability.md) and tracked by epic #25.
+
+The generic read-only commands accept `-` as a single, unambiguous stdin binding. The incubating adapter-specific `testule go ...` surface remains file-oriented until the generic adapter boundary is proven.
 
 The current TestPlan supports level, behavior, and generation requirements plus explicitly justified inapplicable requirements. Evidence records bind to a TestPlan fingerprint and subject revision before they can satisfy requirements.
 

@@ -24,25 +24,27 @@ This document defines the process boundary shared by shell users, CI systems, an
 
 ### stdin
 
-Where a positional path denotes a read-only input document or stream, `-` should denote stdin when the command can consume that input unambiguously.
+Where a positional path denotes a read-only input document or stream, `-` denotes stdin when the command can consume that input unambiguously.
 
-Target examples:
+Current `v1alpha1` examples:
 
 ```sh
 cat plan.yaml | testule validate --format json -
 
 testule fingerprint - < plan.yaml
+
+testule gaps --subject-revision "$REV" plan.yaml - < evidence.yaml
 ```
 
-Commands accepting multiple heterogeneous inputs must define which option or position owns stdin. A command must reject ambiguous attempts to bind stdin to more than one logical input rather than guessing.
+`validate` and `fingerprint` may bind their plan input to stdin. `gaps` may bind stdin to either its plan position or one evidence position, but never more than one logical input in the same invocation. Multiple `-` positional inputs are rejected as a usage error rather than consuming the same stream ambiguously.
 
-For example, a future gaps surface may use explicit options when both plan and evidence can be streamed:
+A future gaps surface may add explicit options when streaming multiple input kinds becomes important:
 
 ```sh
 testule gaps --plan plan.yaml --evidence - --subject-revision "$REV" --format json
 ```
 
-The precise syntax remains versioned with the CLI; the invariant is that stdin binding is explicit and deterministic.
+That syntax is not part of the current contract. The invariant is that stdin binding remains explicit and deterministic.
 
 ### stdout
 
@@ -95,21 +97,28 @@ Each line must be a complete independently parseable JSON object. Stream contrac
 - partial final-line behavior;
 - provenance and identity preservation.
 
-JSONL should not be added merely for symmetry. It should be introduced where record-at-a-time composition is useful and semantically sound.
+JSONL should not be added merely for symmetry. It should be introduced where record-at-a-time composition is useful and semantically sound. JSONL and Testule-to-Testule normalized Evidence streams are tracked by #27.
 
 ## Exit status
 
-Testule should define stable exit-status classes rather than requiring callers to infer state from text.
+Exit status is a stable control-flow contract. Structured stdout remains the authoritative representation of a normal domain result when a command supports structured output.
 
-The exact numeric allocation is tracked by #26, but the semantic classes are:
+The current `v1alpha1` numeric allocation is:
 
-- **success** — command completed and its success condition is satisfied;
-- **domain-negative** — command completed correctly but the requested test/validation/gap condition is not satisfied;
-- **usage/configuration error** — invocation or declarative input is invalid for the requested operation;
-- **execution failure** — an adapter, dependency, environment, or bounded test execution failed in a way distinct from a normal negative test result;
-- **internal failure** — Testule itself could not complete due to an unexpected defect or invariant violation.
+| Exit | Meaning | Semantic class |
+| ---: | --- | --- |
+| `0` | command completed and its success condition is satisfied | success |
+| `1` | unexpected Testule defect or invariant failure | internal failure |
+| `2` | invalid CLI invocation or ambiguous stream binding | usage/configuration error |
+| `3` | invalid Testule declarative document or incompatible declarative input | declarative-input error |
+| `4` | I/O, adapter setup, dependency, or bounded execution error | execution failure |
+| `5` | gap evaluation completed correctly but required gaps remain | domain-negative |
+| `6` | native adapter execution completed with a failed test/fuzz result | domain-negative |
+| `7` | requested adapter capability is unsupported | domain-negative/unsupported |
 
-A command-specific domain-negative result must remain representable in structured stdout when useful; exit status is a control-flow signal, not a replacement for Evidence.
+These values are part of the `v1alpha1` CLI process contract and must not be silently repurposed. A future breaking reallocation requires an explicit version boundary.
+
+A command-specific domain-negative result should remain representable in structured stdout or Evidence when useful; exit status is a shell control-flow signal, not a replacement for normalized evidence.
 
 ## Signals and broken pipes
 
@@ -119,7 +128,7 @@ A downstream consumer may terminate early:
 testule gaps --format json ... | head -c 200
 ```
 
-EPIPE/SIGPIPE from a closed downstream pipe is ordinary Unix pipeline behavior. Testule should terminate without reporting a misleading internal error or stack trace.
+EPIPE/closed-pipe write failures are ordinary Unix pipeline termination and must not be surfaced as Testule internal failures or noisy diagnostics. Native SIGPIPE termination by the operating system is likewise not a Testule invariant failure.
 
 Signal handling must not corrupt persistent state. Commands with explicit mutation semantics must either complete their atomic unit or leave recoverable, documented state.
 
@@ -152,16 +161,23 @@ testule gaps \
   --subject-revision "$REV" \
   --format json \
   plan.yaml evidence/*.yaml \
-  | jq '.requirements[] | select(.state != "satisfied")'
+  | jq '.entries[] | select(.state != "satisfied")'
 ```
 
 ### Fan-in with xargs
 
-Where a command accepts multiple evidence paths, standard shell discovery should remain usable:
+Where a command accepts multiple evidence paths, standard shell discovery remains usable:
 
 ```sh
 find evidence -name '*.yaml' -print0 \
   | xargs -0 testule gaps --subject-revision "$REV" --format json plan.yaml
+```
+
+### Stream one Evidence document
+
+```sh
+cat evidence.yaml \
+  | testule gaps --subject-revision "$REV" --format json plan.yaml -
 ```
 
 ### Preserve and consume a normalized stream
@@ -221,16 +237,18 @@ Tracked by #28.
 
 ## Conformance expectations
 
-CI should eventually assert at least:
+CI should assert at least:
 
 - stdin works for supported read-only inputs;
 - machine stdout remains parseable while diagnostics are written to stderr;
 - text output is not used as an interchange dependency;
 - exit-code classes are stable;
 - no normal command prompts unexpectedly;
-- EPIPE/SIGPIPE does not surface as an internal error;
+- EPIPE/closed-pipe behavior does not surface as an internal error;
 - one Testule-to-Testule pipeline works without temporary interchange files;
 - man pages and CLI help agree on shipped commands and options.
+
+The current implementation covers stdin at both unit and process boundaries plus structured stdout/stderr separation and EPIPE handling. Broader executable conformance coverage remains tracked by #28.
 
 ## Delivery plan
 

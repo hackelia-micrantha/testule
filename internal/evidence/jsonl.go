@@ -39,6 +39,9 @@ func DecodeJSONL(r io.Reader) ([]*Evidence, []plan.Diagnostic) {
 		if len(raw) == 0 {
 			return nil, []plan.Diagnostic{{Code: "invalid_jsonl", Message: fmt.Sprintf("line %d: blank lines are not permitted", line)}}
 		}
+		if int64(len(raw)) > MaxEvidenceBytes {
+			return nil, []plan.Diagnostic{{Code: "input_too_large", Message: fmt.Sprintf("line %d: evidence record exceeds maximum size of %d bytes", line, MaxEvidenceBytes)}}
+		}
 		if len(records) >= MaxEvidenceRecords {
 			return nil, []plan.Diagnostic{{Code: "too_many_records", Message: fmt.Sprintf("evidence stream exceeds maximum of %d records", MaxEvidenceRecords)}}
 		}

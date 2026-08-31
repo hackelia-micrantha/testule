@@ -17,19 +17,26 @@ const (
 )
 
 // DecodeJSONL decodes a bounded stream of normalized Evidence records.
-// Each non-empty physical line must contain exactly one strict JSON object.
-// A complete final record does not require a trailing newline.
+// Each physical line must contain exactly one strict JSON object. A complete
+// final record does not require a trailing newline.
 func DecodeJSONL(r io.Reader) ([]*Evidence, []plan.Diagnostic) {
-	limited := io.LimitReader(r, MaxEvidenceStreamBytes+1)
-	scanner := bufio.NewScanner(limited)
+	data, err := io.ReadAll(io.LimitReader(r, MaxEvidenceStreamBytes+1))
+	if err != nil {
+		return nil, []plan.Diagnostic{{Code: "io_error", Message: err.Error()}}
+	}
+	if int64(len(data)) > MaxEvidenceStreamBytes {
+		return nil, []plan.Diagnostic{{Code: "input_too_large", Message: fmt.Sprintf("evidence JSONL stream exceeds maximum size of %d bytes", MaxEvidenceStreamBytes)}}
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(make([]byte, 64*1024), int(MaxEvidenceBytes)+1)
 
 	records := make([]*Evidence, 0)
 	line := 0
 	for scanner.Scan() {
 		line++
-		data := bytes.TrimSpace(scanner.Bytes())
-		if len(data) == 0 {
+		raw := bytes.TrimSpace(scanner.Bytes())
+		if len(raw) == 0 {
 			return nil, []plan.Diagnostic{{Code: "invalid_jsonl", Message: fmt.Sprintf("line %d: blank lines are not permitted", line)}}
 		}
 		if len(records) >= MaxEvidenceRecords {
@@ -37,7 +44,7 @@ func DecodeJSONL(r io.Reader) ([]*Evidence, []plan.Diagnostic) {
 		}
 
 		var record Evidence
-		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder := json.NewDecoder(bytes.NewReader(raw))
 		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&record); err != nil {
 			return nil, []plan.Diagnostic{{Code: "invalid_jsonl", Message: fmt.Sprintf("line %d: %v", line, err)}}
@@ -62,10 +69,7 @@ func DecodeJSONL(r io.Reader) ([]*Evidence, []plan.Diagnostic) {
 		records = append(records, &record)
 	}
 	if err := scanner.Err(); err != nil {
-		if errors.Is(err, bufio.ErrTooLong) || len(records) == 0 {
-			return nil, []plan.Diagnostic{{Code: "input_too_large", Message: "evidence JSONL record or stream exceeds the supported size limit"}}
-		}
-		return nil, []plan.Diagnostic{{Code: "invalid_jsonl", Message: err.Error()}}
+		return nil, []plan.Diagnostic{{Code: "input_too_large", Message: fmt.Sprintf("evidence JSONL record exceeds maximum size of %d bytes", MaxEvidenceBytes)}}
 	}
 	if len(records) == 0 {
 		return nil, []plan.Diagnostic{{Code: "invalid_jsonl", Message: "evidence JSONL stream must contain at least one record"}}

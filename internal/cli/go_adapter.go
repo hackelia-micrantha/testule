@@ -68,7 +68,7 @@ func runGoExecute(operation goadapter.Operation, args []string, stdout, stderr i
 		return ExitUsage
 	}
 
-	p, diagnostics, exit := loadPlan(planPath)
+	p, diagnostics, exit := loadPlan(planPath, nil)
 	if exit != ExitOK {
 		if err := writeResult(stdout, stderr, "text", result{Valid: false, Source: planPath, Diagnostics: diagnostics}); err != nil {
 			fmt.Fprintln(stderr, err)
@@ -157,7 +157,7 @@ func runGoPromote(args []string, stdout, stderr io.Writer) int {
 }
 
 func loadEvidence(path string, stdout, stderr io.Writer) (*evidence.Evidence, int) {
-	data, err := readBounded(path, evidence.MaxEvidenceBytes, "evidence")
+	data, err := readBounded(path, nil, evidence.MaxEvidenceBytes, "evidence")
 	if err != nil {
 		if writeErr := writeResult(stdout, stderr, "text", result{Valid: false, Source: path, Diagnostics: []plan.Diagnostic{{Code: "io_error", Message: err.Error()}}}); writeErr != nil {
 			fmt.Fprintln(stderr, writeErr)
@@ -187,12 +187,4 @@ func adapterStatusExit(status string) int {
 	default:
 		return ExitInternal
 	}
-}
-
-func printGoUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage:")
-	fmt.Fprintln(w, "  testule go test --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <TestName> --level <level> --environment <id> --run-id <id> [--generation example] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--timeout 30s]")
-	fmt.Fprintln(w, "  testule go fuzz --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <FuzzName> --level <level> --environment <id> --run-id <id> [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--fuzztime 1s] [--timeout 30s]")
-	fmt.Fprintln(w, "  testule go replay --evidence <evidence.json> --subject-revision <rev> --workspace <dir> --environment <id> --run-id <id> [--timeout 30s]")
-	fmt.Fprintln(w, "  testule go promote --evidence <evidence.json> --subject-revision <rev> --workspace <dir>")
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/hackelia-micrantha/testule/internal/evidence"
 	"github.com/hackelia-micrantha/testule/internal/gap"
@@ -28,7 +29,18 @@ type result struct {
 	Diagnostics []plan.Diagnostic `json:"diagnostics"`
 }
 
+// Run executes a Testule CLI command using the process stdin.
 func Run(args []string, stdout, stderr io.Writer) int {
+	return RunWithInput(args, os.Stdin, stdout, stderr)
+}
+
+// RunWithInput executes a Testule CLI command with an explicit stdin source.
+// It exists so callers and tests can provide stream input without mutating
+// process-global state.
+func RunWithInput(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if stdin == nil {
+		stdin = strings.NewReader("")
+	}
 	if len(args) == 0 {
 		printUsage(stderr)
 		return ExitUsage
@@ -36,11 +48,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	switch args[0] {
 	case "validate":
-		return runValidate(args[1:], stdout, stderr)
+		return runValidate(args[1:], stdin, stdout, stderr)
 	case "fingerprint":
-		return runFingerprint(args[1:], stdout, stderr)
+		return runFingerprint(args[1:], stdin, stdout, stderr)
 	case "gaps":
-		return runGaps(args[1:], stdout, stderr)
+		return runGaps(args[1:], stdin, stdout, stderr)
 	case "go":
 		return runGo(args[1:], stdout, stderr)
 	default:
@@ -49,41 +61,38 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
-func runValidate(args []string, stdout, stderr io.Writer) int {
+func runValidate(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	format, path, ok := parseValidateArgs(args)
 	if !ok {
 		printUsage(stderr)
 		return ExitUsage
 	}
 
-	p, diagnostics, exit := loadPlan(path)
+	p, diagnostics, exit := loadPlan(path, stdin)
 	if exit != ExitOK {
 		if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: path, Diagnostics: diagnostics}); writeErr != nil {
-			fmt.Fprintln(stderr, writeErr)
-			return ExitInternal
+			return handleOutputError(stderr, writeErr)
 		}
 		return exit
 	}
 	_ = p
 
 	if err := writeResult(stdout, stderr, format, result{Valid: true, Source: path, Diagnostics: []plan.Diagnostic{}}); err != nil {
-		fmt.Fprintln(stderr, err)
-		return ExitInternal
+		return handleOutputError(stderr, err)
 	}
 	return ExitOK
 }
 
-func runFingerprint(args []string, stdout, stderr io.Writer) int {
-	if len(args) != 1 || strings.HasPrefix(args[0], "-") {
+func runFingerprint(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) != 1 || (args[0] != "-" && strings.HasPrefix(args[0], "-")) {
 		printUsage(stderr)
 		return ExitUsage
 	}
 	path := args[0]
-	p, diagnostics, exit := loadPlan(path)
+	p, diagnostics, exit := loadPlan(path, stdin)
 	if exit != ExitOK {
 		if writeErr := writeResult(stdout, stderr, "text", result{Valid: false, Source: path, Diagnostics: diagnostics}); writeErr != nil {
-			fmt.Fprintln(stderr, writeErr)
-			return ExitInternal
+			return handleOutputError(stderr, writeErr)
 		}
 		return exit
 	}
@@ -94,44 +103,40 @@ func runFingerprint(args []string, stdout, stderr io.Writer) int {
 		return ExitInternal
 	}
 	if _, err := fmt.Fprintln(stdout, fingerprint); err != nil {
-		fmt.Fprintln(stderr, err)
-		return ExitInternal
+		return handleOutputError(stderr, err)
 	}
 	return ExitOK
 }
 
-func runGaps(args []string, stdout, stderr io.Writer) int {
+func runGaps(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	format, revision, planPath, evidencePaths, ok := parseGapArgs(args)
 	if !ok {
 		printUsage(stderr)
 		return ExitUsage
 	}
 
-	p, diagnostics, exit := loadPlan(planPath)
+	p, diagnostics, exit := loadPlan(planPath, stdin)
 	if exit != ExitOK {
 		if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: planPath, Diagnostics: diagnostics}); writeErr != nil {
-			fmt.Fprintln(stderr, writeErr)
-			return ExitInternal
+			return handleOutputError(stderr, writeErr)
 		}
 		return exit
 	}
 
 	records := make([]*evidence.Evidence, 0, len(evidencePaths))
 	for _, path := range evidencePaths {
-		data, err := readBounded(path, evidence.MaxEvidenceBytes, "evidence")
+		data, err := readBounded(path, stdin, evidence.MaxEvidenceBytes, "evidence")
 		if err != nil {
 			diagnostic := plan.Diagnostic{Code: "io_error", Message: err.Error()}
 			if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: path, Diagnostics: []plan.Diagnostic{diagnostic}}); writeErr != nil {
-				fmt.Fprintln(stderr, writeErr)
-				return ExitInternal
+				return handleOutputError(stderr, writeErr)
 			}
 			return ExitIO
 		}
 		record, evidenceDiagnostics := evidence.Decode(data)
 		if len(evidenceDiagnostics) != 0 {
 			if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: path, Diagnostics: evidenceDiagnostics}); writeErr != nil {
-				fmt.Fprintln(stderr, writeErr)
-				return ExitInternal
+				return handleOutputError(stderr, writeErr)
 			}
 			return ExitInvalidPlan
 		}
@@ -141,15 +146,13 @@ func runGaps(args []string, stdout, stderr io.Writer) int {
 	report, evaluationDiagnostics := gap.Evaluate(p, records, revision)
 	if len(evaluationDiagnostics) != 0 {
 		if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: planPath, Diagnostics: evaluationDiagnostics}); writeErr != nil {
-			fmt.Fprintln(stderr, writeErr)
-			return ExitInternal
+			return handleOutputError(stderr, writeErr)
 		}
 		return ExitInvalidPlan
 	}
 
 	if err := writeGapReport(stdout, format, report); err != nil {
-		fmt.Fprintln(stderr, err)
-		return ExitInternal
+		return handleOutputError(stderr, err)
 	}
 	if !report.Complete {
 		return ExitGaps
@@ -167,7 +170,7 @@ func parseValidateArgs(args []string) (format, path string, ok bool) {
 		case strings.HasPrefix(args[0], "--format="):
 			format = strings.TrimPrefix(args[0], "--format=")
 			args = args[1:]
-		case strings.HasPrefix(args[0], "-"):
+		case args[0] != "-" && strings.HasPrefix(args[0], "-"):
 			return "", "", false
 		default:
 			if path != "" {
@@ -200,7 +203,7 @@ func parseGapArgs(args []string) (format, revision, planPath string, evidencePat
 		case strings.HasPrefix(args[0], "--subject-revision="):
 			revision = strings.TrimPrefix(args[0], "--subject-revision=")
 			args = args[1:]
-		case strings.HasPrefix(args[0], "-"):
+		case args[0] != "-" && strings.HasPrefix(args[0], "-"):
 			return "", "", "", nil, false
 		default:
 			paths = append(paths, args[0])
@@ -211,18 +214,28 @@ func parseGapArgs(args []string) (format, revision, planPath string, evidencePat
 	if !validFormat(format) || strings.TrimSpace(revision) == "" || len(paths) == 0 {
 		return "", "", "", nil, false
 	}
-	if len(paths) > 129 {
+	if len(paths) > 129 || countPath(paths, "-") > 1 {
 		return "", "", "", nil, false
 	}
 	return format, revision, paths[0], paths[1:], true
+}
+
+func countPath(paths []string, want string) int {
+	count := 0
+	for _, path := range paths {
+		if path == want {
+			count++
+		}
+	}
+	return count
 }
 
 func validFormat(format string) bool {
 	return format == "text" || format == "json"
 }
 
-func loadPlan(path string) (*plan.TestPlan, []plan.Diagnostic, int) {
-	data, err := readBounded(path, plan.MaxPlanBytes, "plan")
+func loadPlan(path string, stdin io.Reader) (*plan.TestPlan, []plan.Diagnostic, int) {
+	data, err := readBounded(path, stdin, plan.MaxPlanBytes, "plan")
 	if err != nil {
 		return nil, []plan.Diagnostic{{Code: "io_error", Message: err.Error()}}, ExitIO
 	}
@@ -233,22 +246,42 @@ func loadPlan(path string) (*plan.TestPlan, []plan.Diagnostic, int) {
 	return p, nil, ExitOK
 }
 
-func readBounded(path string, limit int64, noun string) ([]byte, error) {
+func readBounded(path string, stdin io.Reader, limit int64, noun string) ([]byte, error) {
+	if path == "-" {
+		return readBoundedReader(stdin, limit, noun, "stdin")
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open %q: %w", path, err)
 	}
 	defer f.Close()
 
-	limited := io.LimitReader(f, limit+1)
+	return readBoundedReader(f, limit, noun, fmt.Sprintf("%q", path))
+}
+
+func readBoundedReader(r io.Reader, limit int64, noun, source string) ([]byte, error) {
+	limited := io.LimitReader(r, limit+1)
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		return nil, fmt.Errorf("read %q: %w", path, err)
+		return nil, fmt.Errorf("read %s: %w", source, err)
 	}
 	if int64(len(data)) > limit {
 		return nil, errors.New(noun + " exceeds maximum supported size")
 	}
 	return data, nil
+}
+
+func handleOutputError(stderr io.Writer, err error) int {
+	if isBrokenPipe(err) {
+		return ExitOK
+	}
+	fmt.Fprintln(stderr, err)
+	return ExitInternal
+}
+
+func isBrokenPipe(err error) bool {
+	return errors.Is(err, syscall.EPIPE) || errors.Is(err, io.ErrClosedPipe)
 }
 
 func writeResult(stdout, stderr io.Writer, format string, r result) error {
@@ -321,8 +354,8 @@ func writeGapReport(stdout io.Writer, format string, report gap.Report) error {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage:")
-	fmt.Fprintln(w, "  testule validate [--format text|json] <plan.yaml>")
-	fmt.Fprintln(w, "  testule fingerprint <plan.yaml>")
-	fmt.Fprintln(w, "  testule gaps [--format text|json] --subject-revision <revision> <plan.yaml> [evidence.yaml ...]")
+	fmt.Fprintln(w, "  testule validate [--format text|json] <plan.yaml|->")
+	fmt.Fprintln(w, "  testule fingerprint <plan.yaml|->")
+	fmt.Fprintln(w, "  testule gaps [--format text|json] --subject-revision <revision> <plan.yaml|-> [evidence.yaml|- ...]")
 	fmt.Fprintln(w, "  testule go <test|fuzz|replay|promote> ...")
 }

@@ -188,3 +188,11 @@ func adapterStatusExit(status string) int {
 		return ExitInternal
 	}
 }
+
+func printGoUsage(w io.Writer) {
+	fmt.Fprintln(w, "usage:")
+	fmt.Fprintln(w, "  testule go test --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <TestName> --level <level> --environment <id> --run-id <id> [--generation example] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--timeout 30s]")
+	fmt.Fprintln(w, "  testule go fuzz --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <FuzzName> --level <level> --environment <id> --run-id <id> [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--fuzztime 1s] [--timeout 30s]")
+	fmt.Fprintln(w, "  testule go replay --evidence <evidence.json> --subject-revision <rev> --workspace <dir> --environment <id> --run-id <id> [--timeout 30s]")
+	fmt.Fprintln(w, "  testule go promote --evidence <evidence.json> --subject-revision <rev> --workspace <dir>")
+}

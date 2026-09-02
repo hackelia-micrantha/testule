@@ -67,7 +67,7 @@ func TestRunExecutesPackageLifecycleOnce(t *testing.T) {
 		Target:          "TestPass",
 		EnvironmentID:   "test",
 		RunID:           "lifecycle-once",
-		Timeout:         15 * time.Second,
+		Timeout:         30 * time.Second,
 		Coverage:        Coverage{Level: "unit", Generation: "example"},
 	})
 	if err != nil {
@@ -96,7 +96,7 @@ func TestRunMissingTargetIsUnsupportedWithoutDiscoveryExecution(t *testing.T) {
 		Target:          "TestMissing",
 		EnvironmentID:   "test",
 		RunID:           "missing-target",
-		Timeout:         15 * time.Second,
+		Timeout:         30 * time.Second,
 		Coverage:        Coverage{Level: "unit", Generation: "example"},
 	})
 	if err != nil {

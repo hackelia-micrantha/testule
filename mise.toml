@@ -36,15 +36,5 @@ description = "Build the Testule CLI"
 run = "go build ./cmd/testule"
 
 [tasks.ci]
-description = "Run the required validation gate"
-run = [
-  'test -z "$(gofmt -l .)"',
-  "go mod tidy",
-  "git diff --exit-code -- go.mod go.sum",
-  "go vet ./...",
-  "go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...",
-  "go test -race ./...",
-  "go test ./internal/plan -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s",
-  "go test ./internal/evidence -run=^$ -fuzz=FuzzDecodeNeverPanics -fuzztime=5s",
-  "go build ./cmd/testule",
-]
+description = "Run the required validation gate in the pinned Nix environment"
+run = "nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file --command bash scripts/ci.sh"

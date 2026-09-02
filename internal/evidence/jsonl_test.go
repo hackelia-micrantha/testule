@@ -9,13 +9,13 @@ import (
 
 func TestJSONLRoundTripPreservesIdentityAndProvenance(t *testing.T) {
 	record := &Evidence{
-		APIVersion: "testule.dev/v1alpha1",
-		Kind:       "Evidence",
-		Metadata:   &Metadata{Name: "stream-run"},
-		Plan:       &PlanReference{Name: "parser", Fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-		Subject:    &Subject{Component: "parser", Revision: "rev-stream"},
-		Environment: &Environment{ID: "ci-linux"},
-		Provenance: &Provenance{Producer: "go-native/v1alpha1", RunID: "run-stream", References: []string{"source:fixture"}},
+		APIVersion:   "testule.dev/v1alpha1",
+		Kind:         "Evidence",
+		Metadata:     &Metadata{Name: "stream-run"},
+		Plan:         &PlanReference{Name: "parser", Fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		Subject:      &Subject{Component: "parser", Revision: "rev-stream"},
+		Environment:  &Environment{ID: "ci-linux"},
+		Provenance:   &Provenance{Producer: "go-native/v1alpha1", RunID: "run-stream", References: []string{"source:fixture"}},
 		Observations: []Observation{{ID: "unit", Status: "passed", Coverage: Coverage{Levels: []string{"unit"}}}},
 	}
 
@@ -77,13 +77,13 @@ func TestDecodeJSONLRejectsMalformedAndUnknownFields(t *testing.T) {
 
 func TestEncodeJSONLIsOneJSONRecordPerLine(t *testing.T) {
 	record := &Evidence{
-		APIVersion: "testule.dev/v1alpha1",
-		Kind:       "Evidence",
-		Metadata:   &Metadata{Name: "run"},
-		Plan:       &PlanReference{Name: "parser", Fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-		Subject:    &Subject{Component: "parser", Revision: "rev"},
-		Environment: &Environment{ID: "ci"},
-		Provenance: &Provenance{Producer: "test", RunID: "run"},
+		APIVersion:   "testule.dev/v1alpha1",
+		Kind:         "Evidence",
+		Metadata:     &Metadata{Name: "run"},
+		Plan:         &PlanReference{Name: "parser", Fingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		Subject:      &Subject{Component: "parser", Revision: "rev"},
+		Environment:  &Environment{ID: "ci"},
+		Provenance:   &Provenance{Producer: "test", RunID: "run"},
 		Observations: []Observation{{ID: "unit", Status: "passed", Coverage: Coverage{Levels: []string{"unit"}}}},
 	}
 	var output bytes.Buffer

@@ -27,7 +27,7 @@ func validateExecution(execution *Execution, diagnostics *[]plan.Diagnostic) {
 	validateBoundedString(execution.Operation, "execution.operation", 64, true, diagnostics)
 	validateBoundedString(execution.Tool, "execution.tool", 128, true, diagnostics)
 	validateBoundedString(execution.ToolVersion, "execution.toolVersion", 256, true, diagnostics)
-	validateBoundedString(execution.Package, "execution.package", 512, false, diagnostics)
+	validateBoundedString(execution.Scope, "execution.scope", 512, false, diagnostics)
 	validateBoundedString(execution.Target, "execution.target", 256, false, diagnostics)
 	if len(execution.Command) == 0 {
 		*diagnostics = append(*diagnostics, plan.Diagnostic{Code: "required", Path: "execution.command", Message: "at least one command argument is required"})

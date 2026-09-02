@@ -41,6 +41,12 @@ func (Adapter) Invoke(_ context.Context, invocation adaptercontract.Invocation) 
 	if invocation.Capability != adaptercontract.CapabilityEvidenceImport {
 		return adaptercontract.Result{Status: adaptercontract.StatusUnsupported, Diagnostics: []string{"unsupported capability"}}
 	}
+	if invocation.TargetID != "" {
+		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit import does not accept a target ID"}}
+	}
+	if len(invocation.AdapterOptions) != 0 {
+		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit import does not accept adapter options"}}
+	}
 	if len(invocation.Input) == 0 || len(invocation.Input) > MaxInputBytes {
 		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit XML input must be between 1 byte and 1 MiB"}}
 	}

@@ -45,7 +45,7 @@ func (a Adapter) Invoke(ctx context.Context, invocation adaptercontract.Invocati
 	}
 	workspace, err := validateInvocation(invocation)
 	if err != nil {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{err.Error()}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{err.Error()}}
 	}
 	binary, err := a.resolveExecutable()
 	if err != nil {

@@ -109,7 +109,7 @@ func runFingerprint(args []string, stdin io.Reader, stdout, stderr io.Writer) in
 }
 
 func runGaps(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	format, revision, planPath, evidencePaths, ok := parseGapArgs(args)
+	format, evidenceFormat, revision, planPath, evidencePaths, ok := parseGapArgs(args)
 	if !ok {
 		printUsage(stderr)
 		return ExitUsage
@@ -125,22 +125,14 @@ func runGaps(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	records := make([]*evidence.Evidence, 0, len(evidencePaths))
 	for _, path := range evidencePaths {
-		data, err := readBounded(path, stdin, evidence.MaxEvidenceBytes, "evidence")
-		if err != nil {
-			diagnostic := plan.Diagnostic{Code: "io_error", Message: err.Error()}
-			if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: path, Diagnostics: []plan.Diagnostic{diagnostic}}); writeErr != nil {
-				return handleOutputError(stderr, writeErr)
-			}
-			return ExitIO
-		}
-		record, evidenceDiagnostics := evidence.Decode(data)
-		if len(evidenceDiagnostics) != 0 {
+		loaded, evidenceDiagnostics, evidenceExit := loadEvidenceRecords(path, stdin, evidenceFormat)
+		if evidenceExit != ExitOK {
 			if writeErr := writeResult(stdout, stderr, format, result{Valid: false, Source: path, Diagnostics: evidenceDiagnostics}); writeErr != nil {
 				return handleOutputError(stderr, writeErr)
 			}
-			return ExitInvalidPlan
+			return evidenceExit
 		}
-		records = append(records, record)
+		records = append(records, loaded...)
 	}
 
 	report, evaluationDiagnostics := gap.Evaluate(p, records, revision)
@@ -158,6 +150,44 @@ func runGaps(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return ExitGaps
 	}
 	return ExitOK
+}
+
+func loadEvidenceRecords(path string, stdin io.Reader, format string) ([]*evidence.Evidence, []plan.Diagnostic, int) {
+	if format == "document" {
+		data, err := readBounded(path, stdin, evidence.MaxEvidenceBytes, "evidence")
+		if err != nil {
+			return nil, []plan.Diagnostic{{Code: "io_error", Message: err.Error()}}, ExitIO
+		}
+		record, diagnostics := evidence.Decode(data)
+		if len(diagnostics) != 0 {
+			return nil, diagnostics, ExitInvalidPlan
+		}
+		return []*evidence.Evidence{record}, nil, ExitOK
+	}
+
+	var reader io.Reader
+	var file *os.File
+	if path == "-" {
+		reader = stdin
+	} else {
+		opened, err := os.Open(path)
+		if err != nil {
+			return nil, []plan.Diagnostic{{Code: "io_error", Message: fmt.Sprintf("open %q: %v", path, err)}}, ExitIO
+		}
+		file = opened
+		defer file.Close()
+		reader = file
+	}
+
+	records, diagnostics := evidence.DecodeJSONL(reader)
+	if len(diagnostics) != 0 {
+		exit := ExitInvalidPlan
+		if diagnostics[0].Code == "io_error" {
+			exit = ExitIO
+		}
+		return nil, diagnostics, exit
+	}
+	return records, nil, ExitOK
 }
 
 func parseValidateArgs(args []string) (format, path string, ok bool) {
@@ -186,8 +216,9 @@ func parseValidateArgs(args []string) (format, path string, ok bool) {
 	return format, path, true
 }
 
-func parseGapArgs(args []string) (format, revision, planPath string, evidencePaths []string, ok bool) {
+func parseGapArgs(args []string) (format, evidenceFormat, revision, planPath string, evidencePaths []string, ok bool) {
 	format = "text"
+	evidenceFormat = "document"
 	var paths []string
 	for len(args) > 0 {
 		switch {
@@ -197,6 +228,12 @@ func parseGapArgs(args []string) (format, revision, planPath string, evidencePat
 		case strings.HasPrefix(args[0], "--format="):
 			format = strings.TrimPrefix(args[0], "--format=")
 			args = args[1:]
+		case args[0] == "--evidence-format" && len(args) >= 2:
+			evidenceFormat = args[1]
+			args = args[2:]
+		case strings.HasPrefix(args[0], "--evidence-format="):
+			evidenceFormat = strings.TrimPrefix(args[0], "--evidence-format=")
+			args = args[1:]
 		case args[0] == "--subject-revision" && len(args) >= 2:
 			revision = args[1]
 			args = args[2:]
@@ -204,20 +241,20 @@ func parseGapArgs(args []string) (format, revision, planPath string, evidencePat
 			revision = strings.TrimPrefix(args[0], "--subject-revision=")
 			args = args[1:]
 		case args[0] != "-" && strings.HasPrefix(args[0], "-"):
-			return "", "", "", nil, false
+			return "", "", "", "", nil, false
 		default:
 			paths = append(paths, args[0])
 			args = args[1:]
 		}
 	}
 
-	if !validFormat(format) || strings.TrimSpace(revision) == "" || len(paths) == 0 {
-		return "", "", "", nil, false
+	if !validFormat(format) || !validEvidenceFormat(evidenceFormat) || strings.TrimSpace(revision) == "" || len(paths) == 0 {
+		return "", "", "", "", nil, false
 	}
 	if len(paths) > 129 || countPath(paths, "-") > 1 {
-		return "", "", "", nil, false
+		return "", "", "", "", nil, false
 	}
-	return format, revision, paths[0], paths[1:], true
+	return format, evidenceFormat, revision, paths[0], paths[1:], true
 }
 
 func countPath(paths []string, want string) int {
@@ -232,6 +269,10 @@ func countPath(paths []string, want string) int {
 
 func validFormat(format string) bool {
 	return format == "text" || format == "json"
+}
+
+func validEvidenceFormat(format string) bool {
+	return format == "document" || format == "jsonl"
 }
 
 func loadPlan(path string, stdin io.Reader) (*plan.TestPlan, []plan.Diagnostic, int) {
@@ -356,6 +397,6 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage:")
 	fmt.Fprintln(w, "  testule validate [--format text|json] <plan.yaml|->")
 	fmt.Fprintln(w, "  testule fingerprint <plan.yaml|->")
-	fmt.Fprintln(w, "  testule gaps [--format text|json] --subject-revision <revision> <plan.yaml|-> [evidence.yaml|- ...]")
+	fmt.Fprintln(w, "  testule gaps [--format text|json] [--evidence-format document|jsonl] --subject-revision <revision> <plan.yaml|-> [evidence.yaml|- ...]")
 	fmt.Fprintln(w, "  testule go <test|fuzz|replay|promote> ...")
 }

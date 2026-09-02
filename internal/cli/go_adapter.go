@@ -41,9 +41,10 @@ func runGoExecute(operation goadapter.Operation, args []string, stdout, stderr i
 	fs := flag.NewFlagSet("testule go "+string(operation), flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	var planPath, revision, workspace, packageValue, target, environmentID, runID string
-	var level, behavior, generation, visibility, quality string
+	var level, behavior, generation, visibility, quality, format string
 	timeout := 30 * time.Second
 	fuzzTime := time.Second
+	format = "text"
 	fs.StringVar(&planPath, "plan", "", "TestPlan path")
 	fs.StringVar(&revision, "subject-revision", "", "subject revision")
 	fs.StringVar(&workspace, "workspace", "", "Go module workspace")
@@ -55,6 +56,7 @@ func runGoExecute(operation goadapter.Operation, args []string, stdout, stderr i
 	fs.StringVar(&behavior, "behavior", "", "Testule behavior")
 	fs.StringVar(&visibility, "visibility", "", "Testule visibility")
 	fs.StringVar(&quality, "quality", "", "Testule quality attribute")
+	fs.StringVar(&format, "format", format, "output format: text or jsonl")
 	fs.DurationVar(&timeout, "timeout", timeout, "wall-clock timeout")
 	if operation == goadapter.OperationTest {
 		generation = "example"
@@ -63,7 +65,7 @@ func runGoExecute(operation goadapter.Operation, args []string, stdout, stderr i
 		generation = "fuzz"
 		fs.DurationVar(&fuzzTime, "fuzztime", fuzzTime, "bounded native fuzz duration")
 	}
-	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || planPath == "" || planPath == "-" || revision == "" || workspace == "" || target == "" || environmentID == "" || runID == "" || level == "" {
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 || planPath == "" || planPath == "-" || revision == "" || workspace == "" || target == "" || environmentID == "" || runID == "" || level == "" || !validAdapterFormat(format) {
 		printGoUsage(stderr)
 		return ExitUsage
 	}
@@ -86,11 +88,22 @@ func runGoExecute(operation goadapter.Operation, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "go adapter: %v\n", err)
 		return ExitIO
 	}
-	if _, err := fmt.Fprintf(stdout, "status: %s\nevidence: %s\n", adapterResult.Status, adapterResult.EvidencePath); err != nil {
-		fmt.Fprintln(stderr, err)
-		return ExitInternal
+	if err := writeAdapterResult(stdout, format, adapterResult); err != nil {
+		return handleOutputError(stderr, err)
 	}
 	return adapterStatusExit(adapterResult.Status)
+}
+
+func writeAdapterResult(stdout io.Writer, format string, adapterResult goadapter.Result) error {
+	if format == "jsonl" {
+		return evidence.EncodeJSONL(stdout, adapterResult.Evidence)
+	}
+	_, err := fmt.Fprintf(stdout, "status: %s\nevidence: %s\n", adapterResult.Status, adapterResult.EvidencePath)
+	return err
+}
+
+func validAdapterFormat(format string) bool {
+	return format == "text" || format == "jsonl"
 }
 
 func runGoReplay(args []string, stdout, stderr io.Writer) int {
@@ -191,8 +204,8 @@ func adapterStatusExit(status string) int {
 
 func printGoUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage:")
-	fmt.Fprintln(w, "  testule go test --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <TestName> --level <level> --environment <id> --run-id <id> [--generation example] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--timeout 30s]")
-	fmt.Fprintln(w, "  testule go fuzz --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <FuzzName> --level <level> --environment <id> --run-id <id> [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--fuzztime 1s] [--timeout 30s]")
+	fmt.Fprintln(w, "  testule go test --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <TestName> --level <level> --environment <id> --run-id <id> [--format text|jsonl] [--generation example] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--timeout 30s]")
+	fmt.Fprintln(w, "  testule go fuzz --plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <FuzzName> --level <level> --environment <id> --run-id <id> [--format text|jsonl] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--fuzztime 1s] [--timeout 30s]")
 	fmt.Fprintln(w, "  testule go replay --evidence <evidence.json> --subject-revision <rev> --workspace <dir> --environment <id> --run-id <id> [--timeout 30s]")
 	fmt.Fprintln(w, "  testule go promote --evidence <evidence.json> --subject-revision <rev> --workspace <dir>")
 }

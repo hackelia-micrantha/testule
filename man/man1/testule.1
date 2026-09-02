@@ -1,0 +1,139 @@
+.TH TESTULE 1 "September 2026" "testule v1alpha1" "User Commands"
+.SH NAME
+testule \- portable testing contracts, normalized evidence, and gap analysis
+.SH SYNOPSIS
+.B testule validate
+[--format text|json] <plan.yaml|->
+.br
+.B testule fingerprint
+<plan.yaml|->
+.br
+.B testule gaps
+[--format text|json] [--evidence-format document|jsonl] --subject-revision <revision> <plan.yaml|-> [evidence.yaml|- ...]
+.br
+.B testule go
+<test|fuzz|replay|promote> ...
+.br
+.B testule go test
+--plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <TestName> --level <level> --environment <id> --run-id <id> [--format text|jsonl] [--generation example] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--timeout 30s]
+.br
+.B testule go fuzz
+--plan <plan> --subject-revision <rev> --workspace <dir> --package <./pkg> --target <FuzzName> --level <level> --environment <id> --run-id <id> [--format text|jsonl] [--behavior <behavior>] [--visibility <visibility>] [--quality <attribute>] [--fuzztime 1s] [--timeout 30s]
+.br
+.B testule go replay
+--evidence <evidence.json> --subject-revision <rev> --workspace <dir> --environment <id> --run-id <id> [--timeout 30s]
+.br
+.B testule go promote
+--evidence <evidence.json> --subject-revision <rev> --workspace <dir>
+.SH DESCRIPTION
+Testule is a CLI-first capability layer for portable testing contracts, ecosystem-native adapters, normalized Evidence, and evidence-based gap analysis. Normal commands are non-interactive and intended to compose predictably in shells, CI systems, and governed agent or supervisor transports.
+.SH COMMANDS
+.TP
+.B validate
+Strictly decode and validate one TestPlan. A plan path of \fB-\fR reads the plan from standard input.
+.TP
+.B fingerprint
+Compute the canonical TestPlan fingerprint. A plan path of \fB-\fR reads the plan from standard input.
+.TP
+.B gaps
+Evaluate Evidence against a TestPlan and subject revision. With \fB--evidence-format=document\fR, each evidence input contains one Evidence document. With \fB--evidence-format=jsonl\fR, each evidence input is a bounded JSONL stream containing one strict Evidence object per physical line. At most one positional input may be \fB-\fR in an invocation.
+.TP
+.B go test
+Execute one exact Go test through the incubating native Go adapter. \fB--format=jsonl\fR emits the normalized Evidence record to stdout.
+.TP
+.B go fuzz
+Execute one bounded native Go fuzz target. \fB--format=jsonl\fR emits the normalized Evidence record to stdout.
+.TP
+.B go replay
+Replay a previously captured Go fuzz Evidence record. This adapter-specific surface currently requires file input.
+.TP
+.B go promote
+Explicitly promote a replayable fuzz failure into a persistent regression corpus entry. This mutates the workspace and currently requires file input.
+.SH STANDARD STREAMS
+.SS stdin
+Where a read-only plan or evidence path accepts streaming, \fB-\fR denotes stdin. The binding must be unambiguous. Multiple positional \fB-\fR inputs are rejected with exit status 2.
+.SS stdout
+Stdout contains only requested primary result data. Machine formats are suitable for downstream parsing; operator diagnostics and warnings do not belong on stdout.
+.SS stderr
+Stderr contains usage diagnostics, human-oriented validation diagnostics in text mode, adapter/runtime failures, and other operator-facing context that is not part of the selected machine result.
+.SH FORMATS
+.TP
+.B text
+Human-readable command output. Text output is not a stable interchange format.
+.TP
+.B json
+Single-document structured output used by validation and gap analysis.
+.TP
+.B jsonl
+Record-stream output/input. Each physical line is one complete strict JSON Evidence object. Blank lines, malformed records, truncated records, and unknown fields are rejected. A complete final record need not end in a newline. Current bounds are 1 MiB per Evidence record, 16 MiB per input stream, and 128 records per input stream.
+.PP
+Evidence JSONL uses the Evidence object's own \fBapiVersion\fR and \fBkind\fR for schema identity. Stream transport does not rewrite plan fingerprints, subject revisions, metadata, or provenance.
+.SH EXIT STATUS
+.TP
+.B 0
+Command completed and its success condition is satisfied.
+.TP
+.B 1
+Unexpected Testule defect or invariant failure.
+.TP
+.B 2
+Invalid CLI invocation or ambiguous stream binding.
+.TP
+.B 3
+Invalid Testule declarative document, malformed normalized Evidence stream, or incompatible declarative input.
+.TP
+.B 4
+I/O, adapter setup, dependency, or bounded execution error.
+.TP
+.B 5
+Gap evaluation completed correctly but required gaps remain.
+.TP
+.B 6
+Native adapter execution completed with a failed test or fuzz result.
+.TP
+.B 7
+Requested adapter capability is unsupported.
+.SH SIGNALS AND BROKEN PIPES
+EPIPE and closed-pipe write failures are normal downstream pipeline termination and are not reported as Testule internal failures. Native SIGPIPE termination is likewise not a Testule invariant failure. Mutation-capable commands must not leave undocumented partially committed state.
+.SH INTERACTION
+Normal commands do not prompt, open editors or browsers, request terminal credentials, or require a controlling TTY. Any future interactive workflow must be explicitly selected.
+.SH ENVIRONMENT
+The current core CLI defines no Testule-specific environment variables. Adapter subprocesses inherit the bounded execution environment described by the adapter contract; callers should not rely on undeclared environment state as portable Testule input.
+.SH FILES
+TestPlan and Evidence files are explicit command inputs. The Go adapter persists normalized Evidence and artifacts under its documented adapter output paths. \fBgo fuzz\fR and \fBgo replay\fR may stage entries under the workspace's Go fuzz corpus while executing; a failing fuzz run can create corpus directories that remain after the reported reproducer file is moved into Testule evidence storage. Callers that require a pristine source tree should execute adapter operations in a disposable or otherwise resettable workspace. Deliberate persistent regression promotion is performed only through the explicit \fBgo promote\fR operation. Testule does not define a global per-user state directory in v1alpha1.
+.SH EXAMPLES
+Validate from stdin and inspect machine output:
+.PP
+.nf
+cat plan.yaml | testule validate --format json - | jq -e '.valid'
+.fi
+.PP
+Inspect unsatisfied gaps:
+.PP
+.nf
+testule gaps --subject-revision "$REV" --format json plan.yaml evidence/*.yaml \\
+  | jq '.entries[] | select(.state != "satisfied")'
+.fi
+.PP
+Fan in evidence paths with xargs:
+.PP
+.nf
+find evidence -name '*.yaml' -print0 \\
+  | xargs -0 testule gaps --subject-revision "$REV" --format json plan.yaml
+.fi
+.PP
+Preserve an Evidence stream while consuming it:
+.PP
+.nf
+set -o pipefail
+testule go test --plan plan.yaml --subject-revision "$REV" \\
+  --workspace . --package ./pkg --target TestThing --level unit \\
+  --environment ci --run-id run-1 --format jsonl \\
+  | tee evidence.jsonl \\
+  | testule gaps --evidence-format jsonl --subject-revision "$REV" \\
+      --format json plan.yaml -
+.fi
+.SH CONFORMANCE
+The repository validates the operator-visible SYNOPSIS bidirectionally against the CLI's executable usage inventory and runs process-level tests for stdin composition, structured stdout/stderr separation, exit-code classes, non-interactive behavior, Evidence JSONL pipelines, and EPIPE handling.
+.SH SEE ALSO
+The repository documentation includes \fBdocs/cli-unix-composability.md\fR and \fBdocs/evidence-streaming.md\fR. The current interface is incubating and versioned as v1alpha1.

@@ -90,13 +90,13 @@ func TestMissingPythonIsUnsupported(t *testing.T) {
 func TestPythonRejectsUnknownOptionsAndUnsafeTargetForms(t *testing.T) {
 	request := testInvocation(t.TempDir(), "sample_test.Sample.test_ok")
 	request.AdapterOptions["command"] = "rm -rf /"
-	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInfrastructureFailed {
+	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInvalidRequest {
 		t.Fatalf("unknown adapter option accepted: %#v", result)
 	}
 
 	for _, target := range []string{"sample_test.Sample.test_ok\nother", "-v"} {
 		request = testInvocation(t.TempDir(), target)
-		if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInfrastructureFailed {
+		if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInvalidRequest {
 			t.Fatalf("unsafe target accepted %q: %#v", target, result)
 		}
 	}

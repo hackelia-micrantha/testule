@@ -1,6 +1,6 @@
 # Native Go test and fuzz adapter
 
-The first Testule execution adapter deliberately targets a narrow, inspectable subset of the Go toolchain. It proves the adapter/Evidence boundary without defining a general plugin system.
+The first Testule execution adapter deliberately targets a narrow, inspectable subset of the Go toolchain. It proves the adapter/Evidence boundary without defining a general plugin system. Go-specific selectors and package semantics remain inside this adapter; normalized Evidence uses language-neutral execution fields.
 
 ## Commands
 
@@ -41,7 +41,7 @@ testule go promote \
 
 `--package` is restricted to `.` or an exact `./relative/package` path. `...`, import paths, traversal, backslashes, and symlink escapes are rejected. Test targets must be exact `Test*` identifiers and fuzz targets exact `Fuzz*` identifiers; callers do not supply arbitrary Go regular expressions or shell fragments.
 
-The adapter executes the requested exact target once and uses the resulting `go test -json` event stream to determine whether that target actually ran. It does not perform a preliminary `go test -list` invocation, avoiding duplicate package initialization or `TestMain` lifecycle execution. A missing Go tool or exact target is normalized as `unsupported`; compilation/setup errors, test failures, fuzz failures, and timeouts are normalized as `failed` Evidence.
+The adapter executes the requested exact target once and uses the resulting `go test -json` event stream to determine whether that target actually ran. It does not perform a preliminary `go test -list` invocation, avoiding duplicate package initialization or `TestMain` lifecycle execution. A missing Go tool or exact target is normalized as `unsupported`; compilation/setup errors, test failures, fuzz failures, and timeouts are normalized as `failed` Evidence on the legacy Go-specific result surface. The incubating cross-adapter contract in #16/#18 separates adapter terminal state from observation outcome.
 
 ## Execution bounds
 
@@ -75,7 +75,7 @@ execution:
   operation: fuzz
   tool: go
   toolVersion: go1.26.5
-  package: ./parser
+  scope: ./parser
   target: FuzzDecode
   command: [go, test, ...]
   exitCode: 1
@@ -89,6 +89,8 @@ artifacts:
     sha256: sha256:...
     mediaType: application/vnd.go.fuzz-corpus
 ```
+
+`execution.scope` is language-neutral adapter provenance. The Go adapter maps its exact package selector into that field; Python, JVM, JavaScript, analyzers, or importers are not required to model their native structure as a Go package. Replay interprets `scope` only after verifying that the source Evidence was produced by the Go adapter.
 
 Every adapter record remains bound to the exact TestPlan fingerprint, subject component/revision, environment identity, producer, and run ID. Artifact paths are relative, bounded, validated, and never dereferenced by gap analysis.
 
@@ -110,7 +112,7 @@ Go fuzz failure
 
 Go's native fuzz engine performs its own failure minimization before writing the corpus entry. Testule preserves the concrete reported entry and its digest. Testule does not classify arbitrary "new since snapshot" corpus files as its own output; unrelated concurrent corpus writes remain untouched.
 
-`replay` verifies the Evidence binding, exact subject revision, Evidence/artifact path symlink policy, and digest. It stages the reproducer into the package corpus only for the bounded replay command, then removes the staged copy. Replay emits new Evidence under the explicitly supplied replay environment identity.
+`replay` verifies the Evidence binding, exact subject revision, Evidence/artifact path symlink policy, digest, Go adapter identity, and the adapter-owned Go package encoded as the generic execution scope. It stages the reproducer into the package corpus only for the bounded replay command, then removes the staged copy. Replay emits new Evidence under the explicitly supplied replay environment identity.
 
 `promote` is intentionally separate and mutating. It verifies the same source Evidence/revision/digest and copies the reproducer into `testdata/fuzz/<FuzzTarget>/<name>` as a persistent regression corpus entry. Repeating an identical promotion is idempotent; conflicting content fails closed. Promotion uses exclusive creation for a new corpus entry so a path that changes concurrently is not silently overwritten.
 

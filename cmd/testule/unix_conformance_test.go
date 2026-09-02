@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -17,8 +18,17 @@ func TestManPageMatchesExecutableUsageInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manText := string(manData)
 
+	got := visibleManSynopsis(string(manData))
+	want := executableUsageInventory(t, binary)
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("visible man synopsis does not match executable usage\nwant:\n%s\ngot:\n%s", strings.Join(want, "\n"), strings.Join(got, "\n"))
+	}
+}
+
+func executableUsageInventory(t *testing.T, binary string) []string {
+	t.Helper()
+	seen := map[string]struct{}{}
 	for _, args := range [][]string{{}, {"go"}} {
 		command := exec.Command(binary, args...)
 		var stdout, stderr bytes.Buffer
@@ -34,15 +44,50 @@ func TestManPageMatchesExecutableUsageInventory(t *testing.T) {
 		}
 		for _, line := range strings.Split(stderr.String(), "\n") {
 			line = strings.TrimSpace(line)
-			if !strings.HasPrefix(line, "testule ") {
-				continue
-			}
-			marker := `.\" CLI: ` + line
-			if !strings.Contains(manText, marker) {
-				t.Fatalf("man page missing executable usage marker %q", marker)
+			if strings.HasPrefix(line, "testule ") {
+				seen[line] = struct{}{}
 			}
 		}
 	}
+	return sortedKeys(seen)
+}
+
+func visibleManSynopsis(man string) []string {
+	seen := map[string]struct{}{}
+	inSynopsis := false
+	pending := ""
+	for _, raw := range strings.Split(man, "\n") {
+		line := strings.TrimSpace(raw)
+		switch {
+		case line == ".SH SYNOPSIS":
+			inSynopsis = true
+			continue
+		case inSynopsis && strings.HasPrefix(line, ".SH "):
+			inSynopsis = false
+		}
+		if !inSynopsis {
+			continue
+		}
+		if strings.HasPrefix(line, ".B testule ") {
+			pending = strings.TrimPrefix(line, ".B ")
+			continue
+		}
+		if pending == "" || line == "" || strings.HasPrefix(line, ".") {
+			continue
+		}
+		seen[pending+" "+line] = struct{}{}
+		pending = ""
+	}
+	return sortedKeys(seen)
+}
+
+func sortedKeys(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func TestUnixExitCodeAndStreamSeparationConformance(t *testing.T) {

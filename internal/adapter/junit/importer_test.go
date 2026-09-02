@@ -54,6 +54,21 @@ func TestImporterRejectsUnsupportedCapability(t *testing.T) {
 	}
 }
 
+func TestImporterRejectsUnusedTargetAndOptions(t *testing.T) {
+	base := `<testsuite><testcase name="ok"/></testsuite>`
+	request := invocation(base)
+	request.TargetID = "some.target"
+	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInfrastructureFailed {
+		t.Fatalf("unused target was silently accepted: %#v", result)
+	}
+
+	request = invocation(base)
+	request.AdapterOptions = map[string]string{"command": "rm -rf /"}
+	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInfrastructureFailed {
+		t.Fatalf("unused options were silently accepted: %#v", result)
+	}
+}
+
 func TestImporterRejectsDTDAndEntityDeclarations(t *testing.T) {
 	for _, input := range []string{
 		`<!DOCTYPE testsuite SYSTEM "file:///etc/passwd"><testsuite><testcase name="x"/></testsuite>`,

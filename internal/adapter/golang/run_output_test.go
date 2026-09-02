@@ -7,6 +7,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hackelia-micrantha/testule/internal/evidence"
+	"github.com/hackelia-micrantha/testule/internal/gap"
+	"github.com/hackelia-micrantha/testule/internal/plan"
 )
 
 func TestInspectRunOutputFindsTargetAndReportedReproducer(t *testing.T) {
@@ -82,6 +86,38 @@ func TestRunExecutesPackageLifecycleOnce(t *testing.T) {
 	}
 	if strings.TrimSpace(string(count)) != "1" {
 		t.Fatalf("package lifecycle executed %s times; expected once", strings.TrimSpace(string(count)))
+	}
+}
+
+func TestRunEvidenceSatisfiesLanguageNeutralUnitRequirement(t *testing.T) {
+	workspace := lifecycleFixtureWorkspace(t)
+	required := "required"
+	p := adapterPlan()
+	p.Requirements = &plan.Requirements{Levels: &plan.Levels{Unit: &required}}
+	result, err := Run(context.Background(), RunConfig{
+		Operation:       OperationTest,
+		Plan:            p,
+		SubjectRevision: "rev-unit",
+		Workspace:       workspace,
+		Package:         "./sample",
+		Target:          "TestPass",
+		EnvironmentID:   "test",
+		RunID:           "generic-gap",
+		Timeout:         30 * time.Second,
+		Coverage:        Coverage{Level: "unit", Generation: "example"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("expected passed status, got %s", result.Status)
+	}
+	report, diagnostics := gap.Evaluate(p, []*evidence.Evidence{result.Evidence}, "rev-unit")
+	if len(diagnostics) != 0 {
+		t.Fatalf("gap diagnostics: %#v", diagnostics)
+	}
+	if !report.Complete || report.Summary.Satisfied != 1 {
+		t.Fatalf("Go evidence did not satisfy generic unit requirement: %#v", report)
 	}
 }
 

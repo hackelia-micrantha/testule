@@ -82,18 +82,25 @@ JUnit XML parsed normally, report contains failure:
 Python interpreter absent:
   adapter status: unsupported
   observation:    none
+
+Malformed adapter input:
+  adapter status: invalid_request
+  observation:    none
 ```
 
 Current terminal classes are incubating:
 
 - `completed`
+- `invalid_request`
 - `denied`
 - `unsupported`
 - `timed_out`
 - `cancelled`
 - `infrastructure_failed`
 
-They must not be collapsed into Evidence's verification statuses.
+`invalid_request` was added by the multi-adapter proof: malformed XML, unknown adapter options, unsafe native selectors, and other caller/configuration errors are neither verification failures nor infrastructure failures. They must fail closed without being mislabeled as runtime outages.
+
+Terminal classes must not be collapsed into Evidence's verification statuses.
 
 ## Evidence correction discovered by the proof
 
@@ -120,6 +127,7 @@ Properties:
 - output is bounded;
 - user site packages and bytecode writes are disabled and hash seeding is deterministic;
 - missing Python is `unsupported`;
+- malformed adapter options/selectors are `invalid_request`;
 - a normal runner exit that reports test failure is terminal `completed` with failed Evidence.
 
 This is a conformance probe, not a decision that `unittest` is Testule's permanent Python framework.
@@ -132,8 +140,9 @@ Properties:
 
 - typed `evidence.import` capability only;
 - no discovery interface;
+- no target ID or adapter options are silently accepted;
 - no execution metadata is fabricated;
-- malformed or oversized XML fails closed;
+- malformed or oversized XML is `invalid_request`;
 - DTD/entity declarations are rejected;
 - command-looking XML strings remain inert report data;
 - report failures become failed observations while import remains terminal `completed`.
@@ -165,12 +174,13 @@ The proof rejects these assumptions from a Go-only implementation:
 - every adapter discovers targets;
 - a package is a universal execution concept;
 - nonzero verification outcome means adapter infrastructure failed;
+- invalid caller input should be classified as infrastructure failure;
 - adapters need the full TestPlan authoring object;
 - callers should provide arbitrary native commands;
 - adapter protocol and host authorization are one boundary.
 
 ## Conformance boundary
 
-Canonical tests prove that normalized Go-shaped Evidence, actual Python execution Evidence when Python is available, and JUnit-imported Evidence satisfy the same `level.unit` TestPlan requirement without changing TestPlan or gap semantics. Imported failures fail that same requirement without fabricating an execution event.
+Canonical tests prove that actual Go execution Evidence, actual Python execution Evidence when Python is available, and JUnit-imported Evidence satisfy the same `level.unit` TestPlan requirement without changing TestPlan or gap semantics. Imported failures fail that same requirement without fabricating an execution event.
 
 The next stable-protocol decision should be based on this evidence plus further adapter demand, not on the current internal Go interface alone.

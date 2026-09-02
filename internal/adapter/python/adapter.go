@@ -3,6 +3,7 @@ package python
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,12 +27,7 @@ type Adapter struct {
 }
 
 func (a Adapter) Describe() adaptercontract.Descriptor {
-	return adaptercontract.Descriptor{
-		ProtocolVersion: adaptercontract.ProtocolVersion,
-		ID:              AdapterID,
-		Version:         "v1alpha1",
-		Capabilities:    []adaptercontract.Capability{adaptercontract.CapabilityTestExecute},
-	}
+	return adaptercontract.Descriptor{ProtocolVersion: adaptercontract.ProtocolVersion, ID: AdapterID, Version: "v1alpha1", Capabilities: []adaptercontract.Capability{adaptercontract.CapabilityTestExecute}}
 }
 
 func (a Adapter) Probe(context.Context) adaptercontract.ProbeResult {
@@ -55,13 +51,12 @@ func (a Adapter) Invoke(ctx context.Context, invocation adaptercontract.Invocati
 	if err != nil {
 		return adaptercontract.Result{Status: adaptercontract.StatusUnsupported, Diagnostics: []string{"python executable unavailable"}}
 	}
-
 	version, err := pythonVersion(ctx, binary, workspace)
 	if err != nil {
 		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{err.Error()}}
 	}
 
-	args := []string{"-I", "-m", "unittest", invocation.TargetID}
+	args := []string{"-m", "unittest", invocation.TargetID}
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	started := time.Now()
@@ -73,20 +68,16 @@ func (a Adapter) Invoke(ctx context.Context, invocation adaptercontract.Invocati
 	command.Stderr = &stderr
 	err = command.Run()
 	duration := time.Since(started)
-	timedOut := runCtx.Err() == context.DeadlineExceeded
+	if runCtx.Err() == context.DeadlineExceeded {
+		return adaptercontract.Result{Status: adaptercontract.StatusTimedOut, Diagnostics: []string{"python unittest timed out"}}
+	}
 	exitCode := 0
 	if err != nil {
 		var exitErr *exec.ExitError
-		if !strings.Contains(err.Error(), "exit status") || !asExitError(err, &exitErr) {
-			if timedOut {
-				return adaptercontract.Result{Status: adaptercontract.StatusTimedOut, Diagnostics: []string{"python unittest timed out"}}
-			}
+		if !errors.As(err, &exitErr) {
 			return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{fmt.Sprintf("execute unittest: %v", err)}}
 		}
 		exitCode = exitErr.ExitCode()
-	}
-	if timedOut {
-		return adaptercontract.Result{Status: adaptercontract.StatusTimedOut, Diagnostics: []string{"python unittest timed out"}}
 	}
 
 	observationStatus := "passed"
@@ -123,8 +114,8 @@ func (a Adapter) resolveExecutable() (string, error) {
 }
 
 func validateInvocation(invocation adaptercontract.Invocation) (string, error) {
-	if strings.TrimSpace(invocation.TargetID) == "" || utf8.RuneCountInString(invocation.TargetID) > 120 {
-		return "", fmt.Errorf("python target ID must contain 1 to 120 Unicode code points")
+	if strings.TrimSpace(invocation.TargetID) == "" || utf8.RuneCountInString(invocation.TargetID) > 100 {
+		return "", fmt.Errorf("python target ID must contain 1 to 100 Unicode code points")
 	}
 	for _, r := range invocation.TargetID {
 		if unicode.IsControl(r) {
@@ -169,7 +160,7 @@ func pythonVersion(ctx context.Context, binary, workspace string) (string, error
 }
 
 func isolatedEnvironment() []string {
-	env := []string{"PYTHONNOUSERSITE=1", "PYTHONDONTWRITEBYTECODE=1"}
+	env := []string{"PYTHONNOUSERSITE=1", "PYTHONDONTWRITEBYTECODE=1", "PYTHONHASHSEED=0"}
 	if path := os.Getenv("PATH"); path != "" {
 		env = append(env, "PATH="+path)
 	}
@@ -178,11 +169,21 @@ func isolatedEnvironment() []string {
 
 func coverage(value adaptercontract.Coverage) evidence.Coverage {
 	result := evidence.Coverage{}
-	if value.Level != "" { result.Levels = []string{value.Level} }
-	if value.Behavior != "" { result.Behaviors = []string{value.Behavior} }
-	if value.Generation != "" { result.Generation = []string{value.Generation} }
-	if value.Visibility != "" { result.Visibility = []string{value.Visibility} }
-	if value.QualityAttribute != "" { result.QualityAttributes = []string{value.QualityAttribute} }
+	if value.Level != "" {
+		result.Levels = []string{value.Level}
+	}
+	if value.Behavior != "" {
+		result.Behaviors = []string{value.Behavior}
+	}
+	if value.Generation != "" {
+		result.Generation = []string{value.Generation}
+	}
+	if value.Visibility != "" {
+		result.Visibility = []string{value.Visibility}
+	}
+	if value.QualityAttribute != "" {
+		result.QualityAttributes = []string{value.QualityAttribute}
+	}
 	return result
 }
 
@@ -204,12 +205,4 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 		b.truncated = true
 	}
 	return len(p), nil
-}
-
-func asExitError(err error, target **exec.ExitError) bool {
-	value, ok := err.(*exec.ExitError)
-	if ok {
-		*target = value
-	}
-	return ok
 }

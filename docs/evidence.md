@@ -52,14 +52,37 @@ Evidence files are bounded to 1 MiB. Provenance references are bounded opaque st
 
 ### Observation status
 
-Supported execution states are:
+Supported observation statuses are:
 
 - `passed`
 - `failed`
 - `skipped`
 - `unsupported`
 
+These are verification outcomes, **not adapter/process terminal states**. The incubating adapter contract may report an operation as `completed` while its Evidence contains one or more `failed` observations. Conversely, `invalid_request`, `timed_out`, or `infrastructure_failed` terminal adapter results need not fabricate observations at all. See [Incubating adapter semantic contract](adapters/contract.md).
+
 `inapplicable` is deliberately not an Evidence status. Applicability is a requirement decision and therefore belongs to the TestPlan with a rationale.
+
+### Optional execution provenance
+
+Evidence produced by an execution adapter may include an `execution` block. Importers and analyzers that do not execute a native target are not required to fabricate one.
+
+```yaml
+execution:
+  adapter: go-native/v1alpha1
+  operation: test
+  tool: go
+  toolVersion: go1.26.5
+  scope: ./parser
+  target: TestDecode
+  command: [go, test, ...]
+  exitCode: 0
+  durationMillis: 142
+```
+
+`execution.scope` and `execution.target` are optional opaque adapter provenance. Core TestPlan authoring and gap evaluation do not interpret ecosystem-specific selector syntax. For example, the Go adapter stores its package selector in `scope`, while Python execution can omit `scope` and retain its native test ID as an opaque `target`.
+
+The `execution` block records what an adapter actually invoked; it is not a caller-controlled generic command envelope and does not grant execution authority.
 
 ## Plan requirements
 

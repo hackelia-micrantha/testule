@@ -4,11 +4,10 @@ import (
 	"context"
 
 	"github.com/hackelia-micrantha/testule/internal/evidence"
-	"github.com/hackelia-micrantha/testule/internal/plan"
 )
 
-// ProtocolVersion identifies the incubating in-process semantic contract.
-// It is intentionally not a stable public adapter transport or ABI.
+// ProtocolVersion identifies the incubating semantic contract.
+// It is intentionally not yet a stable public adapter transport or ABI.
 const ProtocolVersion = "testule.adapter/v1alpha1"
 
 type Capability string
@@ -47,6 +46,13 @@ type ProbeResult struct {
 	Availability []Availability `json:"availability"`
 }
 
+type PlanBinding struct {
+	APIVersion  string `json:"apiVersion"`
+	Name        string `json:"name"`
+	Fingerprint string `json:"fingerprint"`
+	Component   string `json:"component"`
+}
+
 type Coverage struct {
 	Level            string `json:"level,omitempty"`
 	Behavior         string `json:"behavior,omitempty"`
@@ -56,28 +62,30 @@ type Coverage struct {
 }
 
 // Invocation contains Testule-domain intent plus bounded adapter-owned input.
-// It deliberately contains no executable/command/shell field.
+// It deliberately contains no executable/command/shell field. The full
+// TestPlan is not sent to adapters; the core supplies the immutable binding
+// needed to attribute normalized Evidence.
 type Invocation struct {
-	Capability       Capability        `json:"capability"`
-	Plan             *plan.TestPlan    `json:"-"`
-	SubjectRevision  string            `json:"subjectRevision"`
-	EnvironmentID    string            `json:"environmentId"`
-	RunID            string            `json:"runId"`
-	TargetID         string            `json:"targetId,omitempty"`
-	Coverage         Coverage          `json:"coverage,omitempty"`
-	AdapterOptions   map[string]string `json:"adapterOptions,omitempty"`
-	Input            []byte            `json:"input,omitempty"`
+	Capability      Capability        `json:"capability"`
+	Plan            PlanBinding       `json:"plan"`
+	SubjectRevision string            `json:"subjectRevision"`
+	EnvironmentID   string            `json:"environmentId"`
+	RunID           string            `json:"runId"`
+	TargetID        string            `json:"targetId,omitempty"`
+	Coverage        Coverage          `json:"coverage,omitempty"`
+	AdapterOptions  map[string]string `json:"adapterOptions,omitempty"`
+	Input           []byte            `json:"input,omitempty"`
 }
 
 type Result struct {
-	Status      TerminalStatus      `json:"status"`
-	Evidence    *evidence.Evidence  `json:"evidence,omitempty"`
-	Diagnostics []string            `json:"diagnostics,omitempty"`
+	Status      TerminalStatus     `json:"status"`
+	Evidence    *evidence.Evidence `json:"evidence,omitempty"`
+	Diagnostics []string           `json:"diagnostics,omitempty"`
 }
 
 type Target struct {
-	ID      string `json:"id"`
-	Label   string `json:"label,omitempty"`
+	ID    string `json:"id"`
+	Label string `json:"label,omitempty"`
 }
 
 type Adapter interface {

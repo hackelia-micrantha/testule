@@ -58,13 +58,13 @@ func TestImporterRejectsUnusedTargetAndOptions(t *testing.T) {
 	base := `<testsuite><testcase name="ok"/></testsuite>`
 	request := invocation(base)
 	request.TargetID = "some.target"
-	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInfrastructureFailed {
+	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInvalidRequest {
 		t.Fatalf("unused target was silently accepted: %#v", result)
 	}
 
 	request = invocation(base)
 	request.AdapterOptions = map[string]string{"command": "rm -rf /"}
-	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInfrastructureFailed {
+	if result := (Adapter{}).Invoke(context.Background(), request); result.Status != adaptercontract.StatusInvalidRequest {
 		t.Fatalf("unused options were silently accepted: %#v", result)
 	}
 }
@@ -75,8 +75,8 @@ func TestImporterRejectsDTDAndEntityDeclarations(t *testing.T) {
 		`<!DOCTYPE testsuite [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><testsuite><testcase name="&xxe;"/></testsuite>`,
 	} {
 		result := (Adapter{}).Invoke(context.Background(), invocation(input))
-		if result.Status != adaptercontract.StatusInfrastructureFailed {
-			t.Fatalf("expected fail-closed result for %q: %#v", input, result)
+		if result.Status != adaptercontract.StatusInvalidRequest {
+			t.Fatalf("expected fail-closed invalid request for %q: %#v", input, result)
 		}
 	}
 }
@@ -98,7 +98,7 @@ func TestImporterRejectsMalformedAndOversizedInput(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			result := (Adapter{}).Invoke(context.Background(), invocation(input))
-			if result.Status != adaptercontract.StatusInfrastructureFailed {
+			if result.Status != adaptercontract.StatusInvalidRequest {
 				t.Fatalf("unexpected result: %#v", result)
 			}
 		})

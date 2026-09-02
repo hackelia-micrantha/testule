@@ -21,6 +21,7 @@ type TerminalStatus string
 
 const (
 	StatusCompleted            TerminalStatus = "completed"
+	StatusInvalidRequest       TerminalStatus = "invalid_request"
 	StatusDenied               TerminalStatus = "denied"
 	StatusUnsupported          TerminalStatus = "unsupported"
 	StatusTimedOut             TerminalStatus = "timed_out"

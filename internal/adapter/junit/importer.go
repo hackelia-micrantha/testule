@@ -42,24 +42,24 @@ func (Adapter) Invoke(_ context.Context, invocation adaptercontract.Invocation) 
 		return adaptercontract.Result{Status: adaptercontract.StatusUnsupported, Diagnostics: []string{"unsupported capability"}}
 	}
 	if invocation.TargetID != "" {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit import does not accept a target ID"}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{"JUnit import does not accept a target ID"}}
 	}
 	if len(invocation.AdapterOptions) != 0 {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit import does not accept adapter options"}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{"JUnit import does not accept adapter options"}}
 	}
 	if len(invocation.Input) == 0 || len(invocation.Input) > MaxInputBytes {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit XML input must be between 1 byte and 1 MiB"}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{"JUnit XML input must be between 1 byte and 1 MiB"}}
 	}
 	upper := bytes.ToUpper(invocation.Input)
 	if bytes.Contains(upper, []byte("<!DOCTYPE")) || bytes.Contains(upper, []byte("<!ENTITY")) {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"DTD/entity declarations are not accepted"}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{"DTD/entity declarations are not accepted"}}
 	}
 	cases, err := decodeCases(invocation.Input)
 	if err != nil {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{err.Error()}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{err.Error()}}
 	}
 	if len(cases) == 0 || len(cases) > 256 {
-		return adaptercontract.Result{Status: adaptercontract.StatusInfrastructureFailed, Diagnostics: []string{"JUnit XML must contain between 1 and 256 test cases"}}
+		return adaptercontract.Result{Status: adaptercontract.StatusInvalidRequest, Diagnostics: []string{"JUnit XML must contain between 1 and 256 test cases"}}
 	}
 
 	observations := make([]evidence.Observation, 0, len(cases))

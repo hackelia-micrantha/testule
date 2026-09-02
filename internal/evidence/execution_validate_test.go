@@ -9,7 +9,7 @@ func TestValidateExecutionArtifactsAcceptsBoundedMetadata(t *testing.T) {
 	record := &Evidence{
 		Execution: &Execution{
 			Adapter: "go-native/v1alpha1", Operation: "test", Tool: "go", ToolVersion: "go1.26.5",
-			Package: "./sample", Target: "TestPass", Command: []string{"go", "test", "./sample"}, ExitCode: 0, DurationMillis: 12,
+			Scope: "./sample", Target: "TestPass", Command: []string{"go", "test", "./sample"}, ExitCode: 0, DurationMillis: 12,
 		},
 		Artifacts: []Artifact{{Name: "stdout.log", Role: "stdout", Path: "results/stdout.log", SHA256: "sha256:" + strings.Repeat("a", 64), MediaType: "text/plain"}},
 	}

@@ -117,6 +117,9 @@ func validateInvocation(invocation adaptercontract.Invocation) (string, error) {
 	if strings.TrimSpace(invocation.TargetID) == "" || utf8.RuneCountInString(invocation.TargetID) > 100 {
 		return "", fmt.Errorf("python target ID must contain 1 to 100 Unicode code points")
 	}
+	if strings.HasPrefix(invocation.TargetID, "-") {
+		return "", fmt.Errorf("python target ID must not begin with '-'")
+	}
 	for _, r := range invocation.TargetID {
 		if unicode.IsControl(r) {
 			return "", fmt.Errorf("python target ID must not contain control characters")

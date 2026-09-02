@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	adaptercontract "github.com/hackelia-micrantha/testule/internal/adapter"
@@ -122,5 +121,3 @@ func assertSatisfied(t *testing.T, p *plan.TestPlan, record *evidence.Evidence, 
 		t.Fatalf("unit requirement was not satisfied: %#v", report)
 	}
 }
-
-var _ = strings.Builder{}

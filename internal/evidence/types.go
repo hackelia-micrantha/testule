@@ -42,7 +42,7 @@ type Execution struct {
 	Operation       string   `yaml:"operation" json:"operation"`
 	Tool            string   `yaml:"tool" json:"tool"`
 	ToolVersion     string   `yaml:"toolVersion" json:"toolVersion"`
-	Package         string   `yaml:"package,omitempty" json:"package,omitempty"`
+	Scope           string   `yaml:"scope,omitempty" json:"scope,omitempty"`
 	Target          string   `yaml:"target,omitempty" json:"target,omitempty"`
 	Command         []string `yaml:"command" json:"command"`
 	ExitCode        int      `yaml:"exitCode" json:"exitCode"`

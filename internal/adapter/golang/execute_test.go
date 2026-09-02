@@ -201,7 +201,7 @@ func replayEvidence(name, digest string) *evidence.Evidence {
 		Plan:    &evidence.PlanReference{Name: "adapter", Fingerprint: "sha256:" + strings.Repeat("a", 64)},
 		Subject: &evidence.Subject{Component: "fixture", Revision: "rev-1"}, Environment: &evidence.Environment{ID: "test"},
 		Provenance:   &evidence.Provenance{Producer: AdapterID, RunID: "source"},
-		Execution:    &evidence.Execution{Adapter: AdapterID, Operation: string(OperationFuzz), Tool: "go", ToolVersion: "go1.23", Package: "./sample", Target: "FuzzCrash", Command: []string{"go", "test"}, ExitCode: 1},
+		Execution:    &evidence.Execution{Adapter: AdapterID, Operation: string(OperationFuzz), Tool: "go", ToolVersion: "go1.23", Scope: "./sample", Target: "FuzzCrash", Command: []string{"go", "test"}, ExitCode: 1},
 		Artifacts:    []evidence.Artifact{{Name: name, Role: "fuzz-reproducer", Path: "reproducers/" + name, SHA256: digest, MediaType: "application/vnd.go.fuzz-corpus"}},
 		Observations: []evidence.Observation{{ID: "go-fuzz:FuzzCrash", Status: "failed", Coverage: evidence.Coverage{Levels: []string{"unit"}, Generation: []string{"fuzz"}}}},
 	}

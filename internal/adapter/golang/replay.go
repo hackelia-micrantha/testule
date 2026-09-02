@@ -23,7 +23,7 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	packageDir, err := resolvePackageDir(workspace, source.Execution.Package)
+	packageDir, err := resolvePackageDir(workspace, source.Execution.Scope)
 	if err != nil {
 		return Result{}, err
 	}
@@ -97,7 +97,7 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	args := []string{"go", "test", "-json", "-count=1", "-parallel=1", "-timeout=" + cfg.Timeout.String(), "-run=^" + regexp.QuoteMeta(source.Execution.Target+"/"+artifact.Name) + "$", source.Execution.Package}
+	args := []string{"go", "test", "-json", "-count=1", "-parallel=1", "-timeout=" + cfg.Timeout.String(), "-run=^" + regexp.QuoteMeta(source.Execution.Target+"/"+artifact.Name) + "$", source.Execution.Scope}
 	runCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 	result, err := runCommand(runCtx, binary, args[1:], workspace, env)
@@ -119,7 +119,7 @@ func Replay(ctx context.Context, cfg ReplayConfig) (Result, error) {
 		Provenance:  &evidence.Provenance{Producer: AdapterID, RunID: cfg.RunID, References: []string{"source-evidence:" + filepath.Base(cfg.EvidencePath)}},
 		Execution: &evidence.Execution{
 			Adapter: AdapterID, Operation: string(OperationReplay), Tool: "go", ToolVersion: version,
-			Package: source.Execution.Package, Target: source.Execution.Target, Command: args,
+			Scope: source.Execution.Scope, Target: source.Execution.Target, Command: args,
 			ExitCode: result.exitCode, DurationMillis: result.duration.Milliseconds(), TimedOut: result.timedOut, OutputTruncated: result.truncated,
 		},
 		Artifacts: []evidence.Artifact{replayArtifact},
@@ -139,7 +139,7 @@ func Promote(cfg PromoteConfig) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	packageDir, err := resolvePackageDir(workspace, source.Execution.Package)
+	packageDir, err := resolvePackageDir(workspace, source.Execution.Scope)
 	if err != nil {
 		return "", err
 	}
@@ -188,6 +188,9 @@ func validateReplaySource(source *evidence.Evidence, evidencePath, revision stri
 	}
 	if !fuzzPattern.MatchString(source.Execution.Target) {
 		return nil, evidence.Artifact{}, errors.New("source evidence has invalid fuzz target")
+	}
+	if strings.TrimSpace(source.Execution.Scope) == "" {
+		return nil, evidence.Artifact{}, errors.New("source evidence has no Go package scope")
 	}
 	if strings.TrimSpace(evidencePath) == "" {
 		return nil, evidence.Artifact{}, errors.New("source evidence path is required")
